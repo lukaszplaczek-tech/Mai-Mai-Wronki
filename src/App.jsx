@@ -152,10 +152,10 @@ const MENU_ITEMS = [
   { id: '866', cat: 'ryby', num: '866', name: 'Kalmary w sosie słodko-kwaśnym', price: 32 },
   { id: '873', cat: 'ryby', num: '873', name: 'Kalmary z cytryna na maśle', price: 33 },
 
-  // --- RYŻ I MAKARON SMAŻONY ---
-  { id: '1075', cat: 'makaron_ryz', num: '1075', name: 'Makaron chiński z mięsem', price: 23 },
-  { id: '1076', cat: 'makaron_ryz', num: '1076', name: 'Makaron sojowy z mięsem', price: 23 },
-  { id: '1077', cat: 'makaron_ryz', num: '1077', name: 'Ryż smażony z mięsem', price: 23 },
+  // --- RYŻ I MAKARON SMAŻONY (z wyborem mięsa) ---
+  { id: '1075', cat: 'makaron_ryz', num: '1075', name: 'Makaron chiński', price: 23, hasMeatChoice: true },
+  { id: '1076', cat: 'makaron_ryz', num: '1076', name: 'Makaron sojowy', price: 23, hasMeatChoice: true },
+  { id: '1077', cat: 'makaron_ryz', num: '1077', name: 'Ryż smażony', price: 23, hasMeatChoice: true },
   { id: '1078', cat: 'makaron_ryz', num: '1078', name: 'Ryż smażony z krewetkami', price: 25 },
   { id: '1079', cat: 'makaron_ryz', num: '1079', name: 'Pad thai z tofu', price: 26 },
   { id: '1080', cat: 'makaron_ryz', num: '1080', name: 'Pad thai z kurczakiem', price: 26 },
@@ -197,6 +197,7 @@ export default function App() {
   });
   const [orders, setOrders] = useState([]);
   const [activeCategory, setActiveCategory] = useState('zupy');
+  const [meatSelections, setMeatSelections] = useState({}); // Wybór mięsa dla dań z mięsem
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
@@ -249,7 +250,7 @@ export default function App() {
     setIsLoggedIn(true);
   };
 
-  // Dodawanie zamówienia - automatycznie jako domówienie jeśli włączona jest sesja domawiania przez admina
+  // Dodawanie pojedynczej pozycji (każde kliknięcie dodaje osobną pozycję do bazy)
   const handleAddItem = async (menuItem) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta! Nie można dodawać zamówień.");
@@ -257,49 +258,35 @@ export default function App() {
     }
 
     const isExtra = session.isExtraSession || false;
-    const existingOrder = orders.find(o => o.userId === userId && o.menuItemId === menuItem.id && o.isExtra === isExtra);
+    let finalItemName = menuItem.name;
 
-    if (existingOrder) {
-      await updateDoc(doc(db, "orders", existingOrder.id), {
-        quantity: existingOrder.quantity + 1
-      });
-    } else {
-      const newOrderRef = doc(collection(db, "orders"));
-      await setDoc(newOrderRef, {
-        userId: userId,
-        userName: userName.trim(),
-        menuItemId: menuItem.id,
-        itemNum: menuItem.num,
-        itemName: menuItem.name,
-        price: menuItem.price,
-        isDoublePack: menuItem.isDoublePack || false,
-        quantity: 1,
-        isExtra: isExtra,
-        timestamp: Date.now()
-      });
+    if (menuItem.hasMeatChoice) {
+      const selectedMeat = meatSelections[menuItem.id] || 'kurczak';
+      finalItemName = `${menuItem.name} z mięsem (${selectedMeat})`;
     }
+
+    const newOrderRef = doc(collection(db, "orders"));
+    await setDoc(newOrderRef, {
+      userId: userId,
+      userName: userName.trim(),
+      menuItemId: menuItem.id,
+      itemNum: menuItem.num,
+      itemName: finalItemName,
+      price: menuItem.price,
+      isDoublePack: menuItem.isDoublePack || false,
+      quantity: 1, // zawsze 1 sztuka jako osobna pozycja
+      isExtra: isExtra,
+      timestamp: Date.now()
+    });
   };
 
-  const handleUpdateQty = async (orderId, currentQty, change) => {
+  // Usunięcie konkretnej pozycji z bazy
+  const handleDeleteOrder = async (orderId) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta!");
       return;
     }
-
-    const newQty = currentQty + change;
-    if (newQty <= 0) {
-      await deleteDoc(doc(db, "orders", orderId));
-    } else {
-      await updateDoc(doc(db, "orders", orderId), {
-        quantity: newQty
-      });
-    }
-  };
-
-  const toggleExtraItem = async (orderId, currentExtraStatus) => {
-    await updateDoc(doc(db, "orders", orderId), {
-      isExtra: !currentExtraStatus
-    });
+    await deleteDoc(doc(db, "orders", orderId));
   };
 
   const handleAdminLogin = (e) => {
@@ -370,13 +357,13 @@ export default function App() {
     text += `--- GŁÓWNA LISTA ---\n`;
     regularOrders.forEach((ord, index) => {
       const opakowaniaInfo = ord.isDoublePack ? ` (2 porcje w 1 opak.)` : ``;
-      text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} x${ord.quantity}${opakowaniaInfo} [${ord.userName}]\n`;
+      text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}]\n`;
     });
 
     if (extraOrders.length > 0) {
       text += `\n--- POSIŁKI DOMAWIANE (PROSZĘ NIE MYLIĆ) ---\n`;
       extraOrders.forEach((ord, index) => {
-        text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} x${ord.quantity} [DOMÓWIENIE - ${ord.userName}]\n`;
+        text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}]\n`;
       });
     }
 
@@ -475,7 +462,7 @@ export default function App() {
               Podsumowanie i SMS
               {orders.length > 0 && (
                 <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                  {orders.reduce((acc, o) => acc + o.quantity, 0)}
+                  {orders.length}
                 </span>
               )}
             </button>
@@ -557,7 +544,7 @@ export default function App() {
         {activeTab === 'order' && (
           <div className="space-y-6">
             
-            {/* DUŻE PODSUMOWANIE ZAMÓWIENIA UŻYTKOWNIKA NA GÓRZE NAD MENU */}
+            {/* DUŻE PODSUMOWANIE ZAMÓWIENIA UŻYTKOWNIKA NA GÓRZE */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-3 mb-4">
                 <h3 className="text-base font-bold text-amber-400 flex items-center gap-2">
@@ -578,27 +565,16 @@ export default function App() {
                         <span className="font-semibold text-amber-400 mr-1.5">#{item.itemNum}</span>
                         <span className="text-slate-200 font-medium">{item.itemName}</span>
                         {item.isExtra && <span className="bg-amber-500/20 text-amber-300 text-[9px] px-1.5 py-0.5 rounded ml-1 font-bold">DOMÓWIENIE</span>}
-                        <div className="text-[11px] text-slate-400 mt-0.5">{item.price} zł x {item.quantity} = <strong className="text-slate-200">{item.price * item.quantity} zł</strong></div>
+                        <div className="text-[11px] text-slate-400 mt-0.5"><strong className="text-slate-200">{item.price} zł</strong></div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button 
-                          onClick={() => handleUpdateQty(item.id, item.quantity, -1)}
-                          className="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300 transition-all"
-                          disabled={!session.isOpen}
-                          title="Zmniejsz ilość"
-                        >
-                          <Minus size={13} />
-                        </button>
-                        <span className="w-6 text-center font-bold text-slate-100 text-sm">{item.quantity}</span>
-                        <button 
-                          onClick={() => handleUpdateQty(item.id, item.quantity, 1)}
-                          className="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300 transition-all"
-                          disabled={!session.isOpen}
-                          title="Zwiększ ilość"
-                        >
-                          <Plus size={13} />
-                        </button>
-                      </div>
+                      <button 
+                        onClick={() => handleDeleteOrder(item.id)}
+                        className="w-7 h-7 bg-rose-950/40 hover:bg-rose-900 text-rose-400 rounded-lg flex items-center justify-center transition-all shrink-0 border border-rose-800/40"
+                        disabled={!session.isOpen}
+                        title="Usuń tę pozycję"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -655,6 +631,30 @@ export default function App() {
                               </span>
                             </div>
                             <h4 className="font-semibold text-slate-200 text-sm mt-1">{item.name}</h4>
+                            
+                            {/* Wybór mięsa dla dań z mięsem */}
+                            {item.hasMeatChoice && (
+                              <div className="mt-2 pt-2 border-t border-slate-800/60">
+                                <label className="block text-[11px] text-slate-400 mb-1">Wybierz mięso:</label>
+                                <div className="grid grid-cols-3 gap-1">
+                                  {['kurczak', 'wieprzowina', 'wołowina'].map(meat => {
+                                    const current = meatSelections[item.id] || 'kurczak';
+                                    const isSelected = current === meat;
+                                    return (
+                                      <button
+                                        key={meat}
+                                        type="button"
+                                        onClick={() => setMeatSelections(prev => ({ ...prev, [item.id]: meat }))}
+                                        className={`py-1 px-1 text-[10px] rounded-lg font-medium capitalize transition-all border ${isSelected ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold' : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'}`}
+                                      >
+                                        {meat}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
                             {item.isDoublePack && (
                               <span className="inline-block bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] px-2 py-0.5 rounded mt-1">
                                 Specjalne: 2 porcje w 1 opakowaniu (+1,50 zł)
@@ -682,7 +682,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ZAKŁADKA PODSUMOWANIA */}
+        {/* ZAKŁADKA PODSUMOWANIA (KAŻDA SZTUKA OSOBNO) */}
         {activeTab === 'summary' && (
           <div className="max-w-4xl mx-auto space-y-6">
             
@@ -692,7 +692,7 @@ export default function App() {
                   <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
                     <FileText size={20} /> Podsumowanie dla restauracji
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">Główna lista i poranne domówienia rozdzielone automatycznie.</p>
+                  <p className="text-xs text-slate-400 mt-1">Każda sztuka dania w osobnym wierszu. Główna lista i domówienia rozdzielone automatycznie.</p>
                 </div>
                 <button 
                   onClick={copyToClipboard}
@@ -705,7 +705,7 @@ export default function App() {
               {/* LISTA GŁÓWNA */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
-                  Główna lista dań ({regularOrders.reduce((acc, o) => acc + o.quantity, 0)} poz.)
+                  Główna lista dań ({regularOrders.length} poz.)
                 </h4>
                 
                 {regularOrders.length === 0 ? (
@@ -720,26 +720,18 @@ export default function App() {
                             <span className="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
                             <span className="font-semibold text-slate-200">{ord.itemName}</span>
                             {ord.isDoublePack && <span className="text-purple-400 text-[10px] ml-2">(2 porcje w 1 opak.)</span>}
-                            <span className="text-slate-400 ml-2">x{ord.quantity}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-slate-400 italic">[{ord.userName}]</span>
                           {(isAdmin || ord.userId === userId) && (
-                            <div className="flex items-center gap-1 border-l border-slate-800 pl-2">
-                              <button 
-                                onClick={() => toggleExtraItem(ord.id, ord.isExtra)}
-                                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded"
-                              >
-                                Na domówienia
-                              </button>
-                              <button 
-                                onClick={() => deleteDoc(doc(db, "orders", ord.id))}
-                                className="text-rose-400 hover:text-rose-300 p-1"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                            <button 
+                              onClick={() => handleDeleteOrder(ord.id)}
+                              className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
+                              title="Usuń pozycję"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           )}
                         </div>
                       </div>
@@ -751,7 +743,7 @@ export default function App() {
               {/* SEKCJA POSIŁKÓW DOMAWIANYCH */}
               <div className="space-y-3 mt-8">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 pb-2 flex items-center justify-between">
-                  <span>Poranne domówienia pod oryginalną listą ({extraOrders.reduce((acc, o) => acc + o.quantity, 0)} poz.)</span>
+                  <span>Poranne domówienia pod oryginalną listą ({extraOrders.length} poz.)</span>
                 </h4>
                 
                 {extraOrders.length === 0 ? (
@@ -765,27 +757,18 @@ export default function App() {
                           <div>
                             <span className="bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
                             <span className="font-semibold text-slate-200">{ord.itemName}</span>
-                            <span className="text-slate-400 ml-2">x{ord.quantity}</span>
                             <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-1.5 py-0.5 rounded ml-2">DOMÓWIENIE</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-slate-400 italic">[{ord.userName}]</span>
                           {(isAdmin || ord.userId === userId) && (
-                            <div className="flex items-center gap-1 border-l border-slate-800 pl-2">
-                              <button 
-                                onClick={() => toggleExtraItem(ord.id, ord.isExtra)}
-                                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded"
-                              >
-                                Na główną
-                              </button>
-                              <button 
-                                onClick={() => deleteDoc(doc(db, "orders", ord.id))}
-                                className="text-rose-400 hover:text-rose-300 p-1"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                            <button 
+                              onClick={() => handleDeleteOrder(ord.id)}
+                              className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           )}
                         </div>
                       </div>
@@ -806,7 +789,7 @@ export default function App() {
                 {activeUsers.map(uName => {
                   const userOrders = orders.filter(o => o.userName === uName);
                   const foodSum = userOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
-                  const userTotal = foodSum + packagingFee;
+                  const userTotal = foodSum + (userOrders.length > 0 ? packagingFee : 0);
 
                   return (
                     <div key={uName} className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl">
@@ -818,15 +801,15 @@ export default function App() {
                         {userOrders.map(uo => (
                           <li key={uo.id} className="flex justify-between">
                             <span className="truncate pr-2">
-                              #{uo.itemNum} {uo.itemName} x{uo.quantity}
+                              #{uo.itemNum} {uo.itemName}
                               {uo.isExtra && <span className="text-amber-400 text-[10px] ml-1">(domówienie)</span>}
                             </span>
-                            <span className="shrink-0">{uo.price * uo.quantity} zł</span>
+                            <span className="shrink-0">{uo.price} zł</span>
                           </li>
                         ))}
                       </ul>
                       <div className="text-[10px] text-slate-500 pt-2 border-t border-slate-800 flex justify-between">
-                        <span>Opakowanie: {packagingFee} zł</span>
+                        <span>Opakowanie: {userOrders.length > 0 ? packagingFee : 0} zł</span>
                         <span className="font-bold text-slate-300">Razem: {userTotal.toFixed(2)} zł</span>
                       </div>
                     </div>
