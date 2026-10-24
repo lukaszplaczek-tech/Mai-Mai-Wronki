@@ -44,7 +44,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const ADMIN_PIN = "1234";
+const ADMIN_PIN = "4271";
 
 // ==========================================
 // KATEGORIE I PEŁNE MENU
