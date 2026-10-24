@@ -7,26 +7,22 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc, 
-  onSnapshot, 
-  getDoc 
+  onSnapshot 
 } from 'firebase/firestore';
 import { 
   Utensils, 
   Clock, 
   Calendar, 
   Lock, 
-  Unlock, 
   Trash2, 
   Plus, 
   Minus, 
-  CheckCircle, 
   Share2, 
   User, 
   ShieldCheck, 
   FileText, 
   TrendingUp, 
-  Award, 
-  Users,
+  Award,
   PlusCircle
 } from 'lucide-react';
 
@@ -60,33 +56,41 @@ const MENU_CATEGORIES = [
 ];
 
 const MENU_ITEMS = [
+  // Zupy
   { id: '1', cat: 'zupy', num: '1', name: 'Zupa ostro-kwaśna', price: 12 },
   { id: '2', cat: 'zupy', num: '2', name: 'Zupa wan-tan', price: 13 },
   { id: '3', cat: 'zupy', num: '3', name: 'Zupa pho z kurczakiem', price: 22 },
   
+  // Drób
   { id: '10', cat: 'drób', num: '10', name: 'Kurczak w sosie curry', price: 26 },
   { id: '11', cat: 'drób', num: '11', name: 'Kurczak pięciu smaków', price: 26 },
   { id: '12', cat: 'drób', num: '12', name: 'Kurczak w cieście (chrupiący)', price: 27 },
   { id: '13', cat: 'drób', num: '13', name: 'Kurczak z orzechami nerkowca', price: 28 },
 
+  // Wieprzowina
   { id: '20', cat: 'wieprzowina', num: '20', name: 'Wieprzowina w sosie czosnkowym', price: 26 },
   { id: '21', cat: 'wieprzowina', num: '21', name: 'Wieprzowina z warzywami na ostro', price: 26 },
   { id: '22', cat: 'wieprzowina', num: '22', name: 'Wieprzowina po secsyńsku', price: 27 },
 
+  // Wołowina
   { id: '30', cat: 'wołowina', num: '30', name: 'Wołowina z cebulą', price: 31 },
   { id: '31', cat: 'wołowina', num: '31', name: 'Wołowina w sosie pieprzowym', price: 32 },
   { id: '32', cat: 'wołowina', num: '32', name: 'Wołowina pięciu smaków', price: 31 },
 
+  // Kaczka
   { id: '40', cat: 'kaczka', num: '40', name: 'Kaczka chrupiąca z warzywami', price: 35 },
   { id: '41', cat: 'kaczka', num: '41', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
 
+  // Ryby i Krewetki
   { id: '50', cat: 'ryby_krewetki', num: '50', name: 'Krewetki w cieście', price: 34 },
   { id: '51', cat: 'ryby_krewetki', num: '51', name: 'Ryba w sosie słodko-kwaśnym', price: 29 },
 
+  // Makaron i Ryż
   { id: '60', cat: 'makaron_ryz', num: '60', name: 'Smażony makaron z kurczakiem', price: 26 },
   { id: '61', cat: 'makaron_ryz', num: '61', name: 'Smażony ryż po wietnamsku', price: 25 },
   { id: '62', cat: 'makaron_ryz', num: '62', name: 'Pad Thai z kurczakiem', price: 28 },
 
+  // Dodatki i Inne
   { id: '70', cat: 'dodatki', num: '70', name: 'Sajgonki wieprzowe (3 szt.)', price: 18 },
   { id: '71', cat: 'dodatki', num: '71', name: 'Sajgonki wieprzowe - PODWÓJNA PORCJA (6 szt. w 1 opakowaniu)', price: 36, isDoublePack: true },
   { id: '72', cat: 'dodatki', num: '72', name: 'Dodatkowy ryż', price: 7 },
@@ -157,7 +161,6 @@ export default function App() {
     setIsLoggedIn(true);
   };
 
-  // Dodawanie zamówienia z flagą isExtra (domówienie)
   const handleAddItem = async (menuItem, isExtra = false) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta! Nie można dodawać zamówień.");
