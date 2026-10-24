@@ -53,7 +53,7 @@ const ADMIN_PIN = "4271";
 // ==========================================
 const MENU_CATEGORIES = [
   { id: 'zupy', name: 'Zupy' },
-  { id: 'drób', name: 'Dania z drbiu' },
+  { id: 'drób', name: 'Dania z kurczaka' },
   { id: 'wieprzowina', name: 'Wieprzowina' },
   { id: 'wołowina', name: 'Wołowina' },
   { id: 'kaczka', name: 'Kaczka' },
