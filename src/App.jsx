@@ -27,74 +27,163 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// KONFIGURACJA FIREBASE
+// KONFIGURACJA FIREBASE (Twoja baza)
 // ==========================================
-const firebaseConfig = {
-  apiKey: "AIzaSyDLomcJGJnq5ippXymyCT1aRDdAD8gbXA8",
-  authDomain: "zamowienia-mai-mai.firebaseapp.com",
-  projectId: "zamowienia-mai-mai",
-  storageBucket: "zamowienia-mai-mai.firebasestorage.app",
-  messagingSenderId: "796445926554",
-  appId: "1:796445926554:web:ceb19ee2b9941ed0c66b23",
-  measurementId: "G-Q3J35PB1QQ"
-};
+const firebaseConfig = typeof __firebase_config !== 'undefined'
+  ? JSON.parse(__firebase_config)
+  : {
+      apiKey: "AIzaSyDLomcJGJnq5ippXymyCT1aRDdAD8gbXA8",
+      authDomain: "zamowienia-mai-mai.firebaseapp.com",
+      projectId: "zamowienia-mai-mai",
+      storageBucket: "zamowienia-mai-mai.firebasestorage.app",
+      messagingSenderId: "796445926554",
+      appId: "1:796445926554:web:ceb19ee2b9941ed0c66b23",
+      measurementId: "G-Q3J35PB1QQ"
+    };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PIN = "1234";
 
+// ==========================================
+// KATEGORIE I PEŁNE MENU Z ZDJĘĆ
+// ==========================================
 const MENU_CATEGORIES = [
   { id: 'zupy', name: 'Zupy' },
-  { id: 'drób', name: 'Dania z drobiu' },
+  { id: 'przekaski', name: 'Przekąski (Nem/Sajgonki)' },
+  { id: 'drob', name: 'Dania z Kurczaka' },
   { id: 'wieprzowina', name: 'Wieprzowina' },
-  { id: 'wołowina', name: 'Wołowina' },
+  { id: 'wolowina', name: 'Wołowina' },
   { id: 'kaczka', name: 'Kaczka' },
-  { id: 'ryby_krewetki', name: 'Ryby i Krewetki' },
-  { id: 'makaron_ryz', name: 'Makaron i Ryż' },
-  { id: 'dodatki', name: 'Dodatki i Inne' }
+  { id: 'ryby', name: 'Ryby i Owoce Morza' },
+  { id: 'makaron_ryz', name: 'Ryż i Makaron Smażony' },
+  { id: 'male_dania', name: 'Małe Dania - Box' },
+  { id: 'dodatki', name: 'Dodatki i Inne' },
+  { id: 'napoje', name: 'Napoje i Desery' }
 ];
 
 const MENU_ITEMS = [
-  // Zupy
-  { id: '1', cat: 'zupy', num: '1', name: 'Zupa ostro-kwaśna', price: 12 },
-  { id: '2', cat: 'zupy', num: '2', name: 'Zupa wan-tan', price: 13 },
-  { id: '3', cat: 'zupy', num: '3', name: 'Zupa pho z kurczakiem', price: 22 },
-  
-  // Drób
-  { id: '10', cat: 'drób', num: '10', name: 'Kurczak w sosie curry', price: 26 },
-  { id: '11', cat: 'drób', num: '11', name: 'Kurczak pięciu smaków', price: 26 },
-  { id: '12', cat: 'drób', num: '12', name: 'Kurczak w cieście (chrupiący)', price: 27 },
-  { id: '13', cat: 'drób', num: '13', name: 'Kurczak z orzechami nerkowca', price: 28 },
+  // --- ZUPY ---
+  { id: '101', cat: 'zupy', num: '101', name: 'Zupa wonton', price: 13 },
+  { id: '102', cat: 'zupy', num: '102', name: 'Zupa wietnamska', price: 13 },
+  { id: '103', cat: 'zupy', num: '103', name: 'Zupa krabowa', price: 13 },
+  { id: '104', cat: 'zupy', num: '104', name: 'Zupa pekińska pikantna', price: 13 },
+  { id: '105', cat: 'zupy', num: '105', name: 'Zupa rybna ostra', price: 17 },
+  { id: '106', cat: 'zupy', num: '106', name: 'Zupa z makaronem chińskim', price: 17 },
+  { id: '107', cat: 'zupy', num: '107', name: 'Tajska zupa z kurczakiem', price: 17 },
+  { id: '108', cat: 'zupy', num: '108', name: 'Tajska zupa z krewetkami', price: 21 },
+  { id: '109', cat: 'zupy', num: '109', name: 'Zupa curry z tofu na ostro', price: 13 },
+  { id: '110', cat: 'zupy', num: '110', name: 'Zupa pho z kurczakiem', price: 25 },
+  { id: '111', cat: 'zupy', num: '111', name: 'Zupa pho z wołowiną', price: 28 },
 
-  // Wieprzowina
-  { id: '20', cat: 'wieprzowina', num: '20', name: 'Wieprzowina w sosie czosnkowym', price: 26 },
-  { id: '21', cat: 'wieprzowina', num: '21', name: 'Wieprzowina z warzywami na ostro', price: 26 },
-  { id: '22', cat: 'wieprzowina', num: '22', name: 'Wieprzowina po secsyńsku', price: 27 },
+  // --- PRZEKĄSKI ---
+  { id: '207', cat: 'przekaski', num: '207', name: 'Nem - sajgonki z krewetkami (5 szt.)', price: 18 },
+  { id: '208', cat: 'przekaski', num: '208', name: 'Nem - sajgonki wegetariańskie (8 szt.)', price: 16 },
+  { id: '209', cat: 'przekaski', num: '209', name: 'Nem - sajgonki (3 szt.)', price: 15 },
+  { id: '210', cat: 'przekaski', num: '210', name: 'Paluszki o smaku krabowym surimi (3 szt.)', price: 14 },
+  { id: '211', cat: 'przekaski', num: '211', name: 'Pierogi hacao (5 szt.)', price: 17 },
+  { id: '212', cat: 'przekaski', num: '212', name: 'Pierogi xiao mai (5 szt.)', price: 17 },
+  { id: '213', cat: 'przekaski', num: '213', name: 'Krewetki w cieście chrupiącym (2 szt.)', price: 16 },
 
-  // Wołowina
-  { id: '30', cat: 'wołowina', num: '30', name: 'Wołowina z cebulą', price: 31 },
-  { id: '31', cat: 'wołowina', num: '31', name: 'Wołowina w sosie pieprzowym', price: 32 },
-  { id: '32', cat: 'wołowina', num: '32', name: 'Wołowina pięciu smaków', price: 31 },
+  // --- DANIA Z KURCZAKA ---
+  { id: '311', cat: 'drob', num: '311', name: 'Kurczak z brokułami i czosnkiem', price: 27 },
+  { id: '314', cat: 'drob', num: '314', name: 'Kurczak po wietnamsku na gorącym płomieniu', price: 29 },
+  { id: '315', cat: 'drob', num: '315', name: 'Kurczak z warzywami', price: 26 },
+  { id: '316', cat: 'drob', num: '316', name: 'Kurczak w cieście', price: 25 },
+  { id: '317', cat: 'drob', num: '317', name: 'Kurczak gong bao', price: 26 },
+  { id: '318', cat: 'drob', num: '318', name: 'Kurczak z pieczarkami i grzybami mun', price: 26 },
+  { id: '319', cat: 'drob', num: '319', name: 'Kurczak z bambusem', price: 26 },
+  { id: '320', cat: 'drob', num: '320', name: 'Kurczak w sosie curry', price: 25 },
+  { id: '321', cat: 'drob', num: '321', name: 'Kurczak w sosie słodko-kwaśnym', price: 25 },
+  { id: '322', cat: 'drob', num: '322', name: 'Kurczak na ostro', price: 25 },
+  { id: '323', cat: 'drob', num: '323', name: 'Kurczak hong ha na gorącym płomieniu', price: 28 },
+  { id: '324', cat: 'drob', num: '324', name: 'Udko z kurczaka chrupiące (na gorąco)', price: 28 },
+  { id: '325', cat: 'drob', num: '325', name: 'Kurczak w sosie pięciu smaków', price: 25 },
+  { id: '326', cat: 'drob', num: '326', name: 'Kurczak w sosie curry czerwonym', price: 27 },
+  { id: '327', cat: 'drob', num: '327', name: 'Filet chrupiący po tajsku', price: 28 },
+  { id: '328', cat: 'drob', num: '328', name: 'Kurczak z trawą cytrynową na ostro', price: 27 },
+  { id: '329', cat: 'drob', num: '329', name: 'Kurczak z cytryna na maśle', price: 26 },
+  { id: '330', cat: 'drob', num: '330', name: 'Kurczak w sosie sate na gorącym płomieniu', price: 27 },
+  { id: '331', cat: 'drob', num: '331', name: 'Kurczak luc lac na gorącym płomieniu', price: 29 },
 
-  // Kaczka
-  { id: '40', cat: 'kaczka', num: '40', name: 'Kaczka chrupiąca z warzywami', price: 35 },
-  { id: '41', cat: 'kaczka', num: '41', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
+  // --- WIEPRZOWINA ---
+  { id: '426', cat: 'wieprzowina', num: '426', name: 'Kaczka po chińsku na gorącym płomieniu', price: 35 },
+  { id: '427', cat: 'wieprzowina', num: '427', name: 'Kaczka w sosie curry', price: 35 },
+  { id: '428', cat: 'wieprzowina', num: '428', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
+  { id: '431', cat: 'wieprzowina', num: '431', name: 'Kaczka shanghai na gorącym płomieniu', price: 35 },
+  { id: '530', cat: 'wieprzowina', num: '530', name: 'Wieprzowina po wietnamsku', price: 29 },
+  { id: '531', cat: 'wieprzowina', num: '531', name: 'Wieprzowina z warzywami', price: 26 },
+  { id: '532', cat: 'wieprzowina', num: '532', name: 'Wieprzowina na ostro', price: 26 },
+  { id: '533', cat: 'wieprzowina', num: '533', name: 'Wieprzowina w sosie słodko-kwaśnym', price: 27 },
+  { id: '534', cat: 'wieprzowina', num: '534', name: 'Wieprzowina z ananasem', price: 27 },
+  { id: '540', cat: 'wieprzowina', num: '540', name: 'Wieprzowina w sosie sate na ostro', price: 29 },
 
-  // Ryby i Krewetki
-  { id: '50', cat: 'ryby_krewetki', num: '50', name: 'Krewetki w cieście', price: 34 },
-  { id: '51', cat: 'ryby_krewetki', num: '51', name: 'Ryba w sosie słodko-kwaśnym', price: 29 },
+  // --- WOŁOWINA ---
+  { id: '642', cat: 'wolowina', num: '642', name: 'Wołowina w sosie pikantnym', price: 32 },
+  { id: '643', cat: 'wolowina', num: '643', name: 'Wołowina w sosie curry', price: 32 },
+  { id: '644', cat: 'wolowina', num: '644', name: 'Wołowina w sosie słodko-kwaśnym', price: 32 },
+  { id: '645', cat: 'wolowina', num: '645', name: 'Wołowina z warzywami', price: 32 },
+  { id: '646', cat: 'wolowina', num: '646', name: 'Wołowina z brokułami i czosnkiem', price: 32 },
+  { id: '648', cat: 'wolowina', num: '648', name: 'Wołowina po kantońsku', price: 33 },
+  { id: '649', cat: 'wolowina', num: '649', name: 'Wołowina w sosie sate', price: 35 },
+  { id: '650', cat: 'wolowina', num: '650', name: 'Wołowina luc lac na gorącym płomieniu', price: 35 },
+  { id: '651', cat: 'wolowina', num: '651', name: 'Wołowina z czarnym pieprzem', price: 37 },
+  { id: '652', cat: 'wolowina', num: '652', name: 'Wołowina w sosie curry czerwonym', price: 33 },
 
-  // Makaron i Ryż
-  { id: '60', cat: 'makaron_ryz', num: '60', name: 'Smażony makaron z kurczakiem', price: 26 },
-  { id: '61', cat: 'makaron_ryz', num: '61', name: 'Smażony ryż po wietnamsku', price: 25 },
-  { id: '62', cat: 'makaron_ryz', num: '62', name: 'Pad Thai z kurczakiem', price: 28 },
+  // --- KACZKA (Wydzielona lub w odpowiedniej kategorii) ---
+  { id: '40_k', cat: 'kaczka', num: '40', name: 'Kaczka chrupiąca z warzywami', price: 35 },
+  { id: '41_k', cat: 'kaczka', num: '41', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
 
-  // Dodatki i Inne
-  { id: '70', cat: 'dodatki', num: '70', name: 'Sajgonki wieprzowe (3 szt.)', price: 18 },
+  // --- RYBY I OWOCE MORZA ---
+  { id: '855', cat: 'ryby', num: '855', name: 'Ryba po chińsku na gorącym płomieniu', price: 30 },
+  { id: '857', cat: 'ryby', num: '857', name: 'Ryba w sosie pikantnym', price: 28 },
+  { id: '858', cat: 'ryby', num: '858', name: 'Ryba w sosie słodko-kwaśnym', price: 28 },
+  { id: '859', cat: 'ryby', num: '859', name: 'Ryba w sosie curry', price: 28 },
+  { id: '869', cat: 'ryby', num: '869', name: 'Ryba z cytryna na maśle', price: 29 },
+  { id: '870', cat: 'ryby', num: '870', name: 'Ryba chrupiąca na gorącym płomieniu', price: 30 },
+  { id: '863', cat: 'ryby', num: '863', name: 'Krewetki koktajlowe w sosie słodko-kwaśnym', price: 35 },
+  { id: '871', cat: 'ryby', num: '871', name: 'Krewetki koktajlowe na gorącym płomieniu', price: 35 },
+  { id: '860', cat: 'ryby', num: '860', name: 'Krewetki na maśle pikantnym', price: 50 },
+  { id: '872', cat: 'ryby', num: '872', name: 'Krewetki pikantne z trawą cytrynową', price: 50 },
+  { id: '874', cat: 'ryby', num: '874', name: 'Krewetki w sosie curry', price: 50 },
+  { id: '875', cat: 'ryby', num: '875', name: 'Krewetki w sosie tamaryndowym', price: 50 },
+  { id: '864', cat: 'ryby', num: '864', name: 'Krewetki w cieście chrupiącym', price: 32 },
+  { id: '865', cat: 'ryby', num: '865', name: 'Kalmary w sosie pikantnym', price: 32 },
+  { id: '866', cat: 'ryby', num: '866', name: 'Kalmary w sosie słodko-kwaśnym', price: 32 },
+  { id: '873', cat: 'ryby', num: '873', name: 'Kalmary z cytryna na maśle', price: 33 },
+
+  // --- RYŻ I MAKARON SMAŻONY ---
+  { id: '1075', cat: 'makaron_ryz', num: '1075', name: 'Makaron chiński z mięsem', price: 23 },
+  { id: '1076', cat: 'makaron_ryz', num: '1076', name: 'Makaron sojowy z mięsem', price: 23 },
+  { id: '1077', cat: 'makaron_ryz', num: '1077', name: 'Ryż smażony z mięsem', price: 23 },
+  { id: '1078', cat: 'makaron_ryz', num: '1078', name: 'Ryż smażony z krewetkami', price: 25 },
+  { id: '1079', cat: 'makaron_ryz', num: '1079', name: 'Pad thai z tofu', price: 26 },
+  { id: '1080', cat: 'makaron_ryz', num: '1080', name: 'Pad thai z kurczakiem', price: 26 },
+  { id: '1078_w', cat: 'makaron_ryz', num: '1078', name: 'Pad thai z wołowiną', price: 26 },
+  { id: '1078_kr', cat: 'makaron_ryz', num: '1078', name: 'Pad thai z krewetkami', price: 26 },
+
+  // --- MAŁE DANIA - BOX ---
+  { id: 'box_1', cat: 'male_dania', num: 'BOX', name: 'Makaron z kurczakiem', price: 20 },
+  { id: 'box_2', cat: 'male_dania', num: 'BOX', name: 'Makaron z warzywami', price: 18 },
+  { id: 'box_3', cat: 'male_dania', num: 'BOX', name: 'Ryż z kurczakiem', price: 20 },
+  { id: 'box_4', cat: 'male_dania', num: 'BOX', name: 'Ryż z warzywami', price: 18 },
+  { id: 'box_5', cat: 'male_dania', num: 'BOX', name: 'Ryż z chrupiącym kurczakiem', price: 20 },
+
+  // --- DODATKI ---
+  { id: '1180', cat: 'dodatki', num: '1180', name: 'Frytki', price: 8 },
+  { id: '1182', cat: 'dodatki', num: '1182', name: 'Surówka', price: 4 },
+  { id: '1183', cat: 'dodatki', num: '1183', name: 'Ryż biały', price: 4 },
+  { id: '1186', cat: 'dodatki', num: '1186', name: 'Ryż smażony', price: 6 },
+  { id: '1187', cat: 'dodatki', num: '1187', name: 'Makaron sojowy', price: 6 },
   { id: '71', cat: 'dodatki', num: '71', name: 'Sajgonki wieprzowe - PODWÓJNA PORCJA (6 szt. w 1 opakowaniu)', price: 36, isDoublePack: true },
-  { id: '72', cat: 'dodatki', num: '72', name: 'Dodatkowy ryż', price: 7 },
-  { id: '73', cat: 'dodatki', num: '73', name: 'Dodatkowy sos słodko-kwaśny', price: 5 }
+
+  // --- NAPOJE I DESERY ---
+  { id: '1410', cat: 'napoje', num: '1410', name: 'Pepsi / Miranda / 7up (500 ml)', price: 8 },
+  { id: '1412', cat: 'napoje', num: '1412', name: 'Lipton (500 ml)', price: 8 },
+  { id: '1402', cat: 'napoje', num: '1402', name: 'Woda mineralna (500 ml)', price: 5 },
+  { id: '1286', cat: 'napoje', num: '1286', name: 'Banan w cieście (2 szt.)', price: 10 },
+  { id: '1287', cat: 'napoje', num: '1287', name: 'Ananas w cieście (2 szt.)', price: 10 }
 ];
 
 export default function App() {
