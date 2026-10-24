@@ -1,4 +1,3 @@
-JSON
 {
   "name": "mai-mai-app",
   "private": true,
@@ -17,9 +16,6 @@ JSON
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.18",
-    "postcss": "^8.4.35",
-    "tailwindcss": "^3.4.1",
     "vite": "^5.1.4"
   }
 }
