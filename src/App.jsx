@@ -134,7 +134,7 @@ export default function App() {
     // Pobierz lub stwórz ID użytkownika
     let storedId = localStorage.getItem('mai_mai_user_id');
     if (!storedId) {
-      storedId = 'user_' + Math.random().toString(36.substring(2, 9));
+      storedId = 'user_' + Math.random().toString(36).substring(2, 9);
       localStorage.setItem('mai_mai_user_id', storedId);
     }
     setUserId(storedId);
