@@ -1,1055 +1,826 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  signInWithCustomToken, 
-  onAuthStateChanged 
-} from 'firebase/auth';
 import { 
   getFirestore, 
   collection, 
   doc, 
   setDoc, 
+  updateDoc, 
   deleteDoc, 
-  onSnapshot 
+  onSnapshot, 
+  getDoc 
 } from 'firebase/firestore';
 import { 
-  Plus, 
-  Trash2, 
+  Utensils, 
   Clock, 
-  Check, 
-  Copy, 
-  Settings, 
-  Search, 
-  ChefHat, 
+  Calendar, 
   Lock, 
-  FileText,
-  Utensils,
-  User,
-  AlertCircle,
-  CreditCard,
-  Banknote,
-  Smartphone,
-  Image as ImageIcon
+  Unlock, 
+  Trash2, 
+  Plus, 
+  Minus, 
+  CheckCircle, 
+  Share2, 
+  User, 
+  ShieldCheck, 
+  FileText, 
+  TrendingUp, 
+  Award, 
+  Users 
 } from 'lucide-react';
 
-// --- FIREBASE CONFIGURATION & INITIALIZATION ---
-const firebaseConfig = typeof __firebase_config !== 'undefined'
-  ? JSON.parse(__firebase_config)
-  : {
-      // Domyślna bezpieczna konfiguracja zapasowa (dla lokalnego/Vercel uruchomienia bez wstrzykiwania)
-      apiKey: "AIzaSyDLomcJGJnq5ippXymyCT1aRDdAD8gbXA8",
+// ==========================================
+// KONFIGURACJA FIREBASE (Wklej swoje dane)
+// ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDLomcJGJnq5ippXymyCT1aRDdAD8gbXA8",
   authDomain: "zamowienia-mai-mai.firebaseapp.com",
   projectId: "zamowienia-mai-mai",
   storageBucket: "zamowienia-mai-mai.firebasestorage.app",
   messagingSenderId: "796445926554",
   appId: "1:796445926554:web:ceb19ee2b9941ed0c66b23",
   measurementId: "G-Q3J35PB1QQ"
-    };
+};
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'bar-mai-mai-wronki';
 
-// --- PEŁNE MENU BAR MAI MAI (WRONKI) ZDJĘĆ ---
-const MENU_DATA = [
-  {
-    category: "Zupy",
-    icon: "🍲",
-    items: [
-      { id: "101", name: "Zupa Wonton", weight: "300 ml", price: 13.00, requiresBox: true },
-      { id: "102", name: "Zupa Wietnamska", weight: "300 ml", price: 13.00, requiresBox: true },
-      { id: "103", name: "Zupa Krabowa", weight: "300 ml", price: 13.00, requiresBox: true },
-      { id: "104", name: "Zupa Pekińska Pikantna", weight: "300 ml", price: 13.00, requiresBox: true },
-      { id: "105", name: "Zupa Rybna Ostra", weight: "300 ml", price: 10.00, requiresBox: true },
-      { id: "106", name: "Zupa z Makaronem Chińskim", weight: "500 ml", price: 17.00, requiresBox: true },
-      { id: "107", name: "Tajska Zupa z Kurczakiem", weight: "300 ml", price: 17.00, requiresBox: true },
-      { id: "108", name: "Tajska Zupa z Krewetkami", weight: "300 ml", price: 15.00, requiresBox: true },
-      { id: "109", name: "Zupa Curry z Tofu na Ostro", weight: "800 ml", price: 13.00, requiresBox: true },
-      { id: "110", name: "Zupa Pho z Kurczakiem", weight: "800 ml", price: 25.00, requiresBox: true },
-      { id: "111", name: "Zupa Pho z Wołowiną", weight: "800 ml", price: 28.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Przekąski",
-    icon: "🥟",
-    items: [
-      { id: "207", name: "Nem - Sajgonki z krewetkami", weight: "5 szt", price: 18.00, requiresBox: true },
-      { id: "208", name: "Nem - Sajgonki wegetariańskie", weight: "8 szt", price: 16.00, requiresBox: true },
-      { id: "209", name: "Nem - Sajgonki", weight: "3 szt", price: 15.00, requiresBox: true },
-      { id: "210", name: "Paluszki o smaku krabowym Surimi", weight: "8 szt", price: 14.00, requiresBox: true },
-      { id: "211", name: "Pierogi Hacao", weight: "5 szt", price: 17.00, requiresBox: true },
-      { id: "212", name: "Pierogi Xiao Mai", weight: "5 szt", price: 17.00, requiresBox: true },
-      { id: "213", name: "Krewetki w cieście chrupiącym", weight: "2 szt", price: 16.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Dania z Kurczaka (ryż i surówka)",
-    icon: "🍗",
-    items: [
-      { id: "311", name: "Kurczak z brokułami i czosnkiem", weight: "400 gr", price: 27.00, requiresBox: true },
-      { id: "314", name: "Kurczak po wietnamsku na gorącym płomieniu", weight: "400 gr", price: 29.00, requiresBox: true },
-      { id: "315", name: "Kurczak z warzywami", weight: "400 gr", price: 26.00, requiresBox: true },
-      { id: "316", name: "Kurczak w cieście", weight: "350 gr", price: 25.00, requiresBox: true },
-      { id: "317", name: "Kurczak Gong Bao", weight: "400 gr", price: 25.00, requiresBox: true },
-      { id: "318", name: "Kurczak z pieczarkami", weight: "400 gr", price: 26.00, requiresBox: true },
-      { id: "319", name: "Kurczak z bambusem i grzybami Mun", weight: "350 gr", price: 26.00, requiresBox: true },
-      { id: "320", name: "Kurczak w sosie curry", weight: "400 gr", price: 25.00, requiresBox: true },
-      { id: "321", name: "Kurczak w sosie słodko-kwaśnym", weight: "400 gr", price: 25.00, requiresBox: true },
-      { id: "322", name: "Kurczak na ostro", weight: "400 gr", price: 25.00, requiresBox: true },
-      { id: "323", name: "Kurczak Hong Ha na gorącym płomieniu", weight: "350 gr", price: 28.00, requiresBox: true },
-      { id: "324", name: "Udko z kurczaka chrupiące (na gorąco)", weight: "350 gr", price: 28.00, requiresBox: true },
-      { id: "325", name: "Kurczak w sosie pięciu smaków", weight: "400 gr", price: 25.00, requiresBox: true },
-      { id: "326", name: "Kurczak w sosie curry czerwonym", weight: "400 gr", price: 28.00, requiresBox: true },
-      { id: "327", name: "Filet chrupiący po tajsku", weight: "400 gr", price: 27.00, requiresBox: true },
-      { id: "328", name: "Kurczak z trawą cytrynową na ostro", weight: "350 gr", price: 25.00, requiresBox: true },
-      { id: "329", name: "Kurczak z cytryną na maśle", weight: "350 gr", price: 26.00, requiresBox: true },
-      { id: "330", name: "Kurczak w sosie Sate na gorącym płomieniu", weight: "350 gr", price: 27.00, requiresBox: true },
-      { id: "331", name: "Kurczak Luc Lac na gorącym płomieniu", weight: "350 gr", price: 29.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Dania z Kaczki (ryż i surówka)",
-    icon: "🦆",
-    items: [
-      { id: "426", name: "Kaczka po chińsku na gorącym płomieniu", weight: "350 gr", price: 35.00, requiresBox: true },
-      { id: "427", name: "Kaczka w sosie curry", weight: "350 gr", price: 35.00, requiresBox: true },
-      { id: "428", name: "Kaczka w sosie słodko-kwaśnym", weight: "350 gr", price: 35.00, requiresBox: true },
-      { id: "431", name: "Kaczka Shanghai na gorącym płomieniu", weight: "350 gr", price: 35.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Dania z Wieprzowiny (ryż i surówka)",
-    icon: "🥩",
-    items: [
-      { id: "530", name: "Wieprzowina po wietnamsku", weight: "350 gr", price: 29.00, requiresBox: true },
-      { id: "531", name: "Wieprzowina z warzywami", weight: "400 gr", price: 26.00, requiresBox: true },
-      { id: "532", name: "Wieprzowina na ostro", weight: "400 gr", price: 26.00, requiresBox: true },
-      { id: "533", name: "Wieprzowina w sosie słodko-kwaśnym", weight: "400 gr", price: 27.00, requiresBox: true },
-      { id: "534", name: "Wieprzowina z ananasem", weight: "400 gr", price: 27.00, requiresBox: true },
-      { id: "540", name: "Wieprzowina w sosie Sate na ostro", weight: "350 gr", price: 29.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Dania z Wołowiny (ryż i surówka)",
-    icon: "🥩",
-    items: [
-      { id: "642", name: "Wołowina w sosie pikantnym", weight: "350 gr", price: 32.00, requiresBox: true },
-      { id: "643", name: "Wołowina w sosie curry", weight: "400 gr", price: 32.00, requiresBox: true },
-      { id: "644", name: "Wołowina w sosie słodko-kwaśnym", weight: "400 gr", price: 32.00, requiresBox: true },
-      { id: "645", name: "Wołowina z warzywami", weight: "350 gr", price: 32.00, requiresBox: true },
-      { id: "646", name: "Wołowina z brokułami i czosnkiem", weight: "400 gr", price: 33.00, requiresBox: true },
-      { id: "648", name: "Wołowina po kantońsku", weight: "400 gr", price: 35.00, requiresBox: true },
-      { id: "649", name: "Wołowina w sosie Sate na gorącym płomieniu", weight: "350 gr", price: 35.00, requiresBox: true },
-      { id: "650", name: "Wołowina Luc Lac na gorącym płomieniu", weight: "350 gr", price: 37.00, requiresBox: true },
-      { id: "651", name: "Wołowina z czarnym pieprzem", weight: "350 gr", price: 35.00, requiresBox: true },
-      { id: "652", name: "Wołowina w sosie curry czerwonym", weight: "400 gr", price: 33.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Dania z Ryb i Owoców Morza",
-    icon: "🐟",
-    items: [
-      { id: "855", name: "Ryba po chińsku na gorącym płomieniu", weight: "350 gr", price: 30.00, requiresBox: true },
-      { id: "857", name: "Ryba w sosie pikantnym", weight: "400 gr", price: 28.00, requiresBox: true },
-      { id: "858", name: "Ryba w sosie słodko-kwaśnym", weight: "400 gr", price: 28.00, requiresBox: true },
-      { id: "859", name: "Ryba w sosie curry", weight: "400 gr", price: 28.00, requiresBox: true },
-      { id: "860", name: "Ryba z cytryną na maśle", weight: "350 gr", price: 29.00, requiresBox: true },
-      { id: "868", name: "Ryba chrupiąca na gorącym płomieniu", weight: "350 gr", price: 30.00, requiresBox: true },
-      { id: "871", name: "Krewetki koktajlowe w sosie słodko-kwaśnym", weight: "350 gr", price: 35.00, requiresBox: true },
-      { id: "872", name: "Krewetki pikantne z trawą cytrynową", weight: "8 szt", price: 35.00, requiresBox: true },
-      { id: "873", name: "Krewetki koktajlowe w sosie pikantnym", weight: "400 gr", price: 35.00, requiresBox: true },
-      { id: "874", name: "Krewetki w sosie curry", weight: "8 szt", price: 50.00, requiresBox: true },
-      { id: "875", name: "Krewetki w sosie tamaryndowym", weight: "8 szt", price: 50.00, requiresBox: true },
-      { id: "864", name: "Kalmary w cieście chrupiącym", weight: "8 szt", price: 32.00, requiresBox: true },
-      { id: "865", name: "Kalmary w sosie pikantnym", weight: "350 gr", price: 32.00, requiresBox: true },
-      { id: "866", name: "Kalmary w sosie słodko-kwaśnym", weight: "400 gr", price: 32.00, requiresBox: true },
-      { id: "873B", name: "Kalmary z cytryną na maśle", weight: "400 gr", price: 33.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Ryż i Makaron Smażony (surówka)",
-    icon: "🍜",
-    items: [
-      { id: "1075", name: "Makaron chiński z mięsem", weight: "400 gr", price: 23.00, requiresBox: true },
-      { id: "1076", name: "Makaron sojowy z mięsem", weight: "400 gr", price: 23.00, requiresBox: true },
-      { id: "1077", name: "Ryż smażony z mięsem", weight: "400 gr", price: 23.00, requiresBox: true },
-      { id: "1078", name: "Ryż smażony z krewetkami", weight: "400 gr", price: 25.00, requiresBox: true },
-      { id: "1079", name: "Pad Thai z Tofu", weight: "400 gr", price: 26.00, requiresBox: true },
-      { id: "1080", name: "Pad Thai z kurczakiem", weight: "400 gr", price: 26.00, requiresBox: true },
-      { id: "1078B", name: "Pad Thai z wołowiną", weight: "400 gr", price: 26.00, requiresBox: true },
-      { id: "1078C", name: "Pad Thai z krewetkami", weight: "400 gr", price: 26.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Dodatki i Opakowania",
-    icon: "🍟",
-    items: [
-      { id: "1180", name: "Frytki", weight: "200 gr", price: 8.00, requiresBox: false },
-      { id: "1182", name: "Surówka", weight: "150 gr", price: 4.00, requiresBox: false },
-      { id: "1183", name: "Ryż biały", weight: "200 gr", price: 4.00, requiresBox: false },
-      { id: "1186", name: "Ryż smażony", weight: "200 gr", price: 6.00, requiresBox: false },
-      { id: "1187", name: "Makaron sojowy", weight: "200 gr", price: 6.00, requiresBox: false },
-      { id: "1016", name: "Reklamówka", weight: "1 szt", price: 0.20, requiresBox: false },
-    ]
-  },
-  {
-    category: "Deser",
-    icon: "🍌",
-    items: [
-      { id: "1286", name: "Banan w cieście", weight: "2 szt", price: 10.00, requiresBox: true },
-      { id: "1287", name: "Ananas w cieście", weight: "2 szt", price: 10.00, requiresBox: true },
-    ]
-  },
-  {
-    category: "Napoje",
-    icon: "🥤",
-    items: [
-      { id: "1410", name: "Pepsi / Mirinda / 7Up (200ml)", weight: "200 ml", price: 6.00, requiresBox: false },
-      { id: "1411", name: "Pepsi / Mirinda / 7Up (500ml)", weight: "500 ml", price: 8.00, requiresBox: false },
-      { id: "1412", name: "Lipton", weight: "500 ml", price: 8.00, requiresBox: false },
-      { id: "1402", name: "Woda mineralna", weight: "500 ml", price: 5.00, requiresBox: false },
-      { id: "1406", name: "Napoje Tymbark", weight: "330 ml", price: 6.00, requiresBox: false },
-      { id: "1407", name: "Sok Tarczyń", weight: "300 ml", price: 7.00, requiresBox: false },
-      { id: "1409", name: "Sok Orientalny", weight: "300 ml", price: 8.00, requiresBox: false },
-    ]
-  }
+// PIN do zarządzania sesją (administrator)
+const ADMIN_PIN = "4271";
+
+// ==========================================
+// MENU BAR MAI MAI
+// ==========================================
+const MENU_CATEGORIES = [
+  { id: 'zupy', name: 'Zupy' },
+  { id: 'drób', name: 'Dania z drbiu' },
+  { id: 'wieprzowina', name: 'Wieprzowina' },
+  { id: 'wołowina', name: 'Wołowina' },
+  { id: 'kaczka', name: 'Kaczka' },
+  { id: 'ryby_krewetki', name: 'Ryby i Krewetki' },
+  { id: 'makaron_ryz', name: 'Makaron i Ryż' },
+  { id: 'dodatki', name: 'Dodatki i Inne' }
+];
+
+const MENU_ITEMS = [
+  // Zupy
+  { id: '1', cat: 'zupy', num: '1', name: 'Zupa ostro-kwaśna', price: 12 },
+  { id: '2', cat: 'zupy', num: '2', name: 'Zupa wan-tan', price: 13 },
+  { id: '3', cat: 'zupy', num: '3', name: 'Zupa pho z kurczakiem', price: 22 },
+  
+  // Drób
+  { id: '10', cat: 'drób', num: '10', name: 'Kurczak w sosie curry', price: 26 },
+  { id: '11', cat: 'drób', num: '11', name: 'Kurczak pięciu smaków', price: 26 },
+  { id: '12', cat: 'drób', num: '12', name: 'Kurczak w cieście (chrupiący)', price: 27 },
+  { id: '13', cat: 'drób', num: '13', name: 'Kurczak z orzechami nerkowca', price: 28 },
+
+  // Wieprzowina
+  { id: '20', cat: 'wieprzowina', num: '20', name: 'Wieprzowina w sosie czosnkowym', price: 26 },
+  { id: '21', cat: 'wieprzowina', num: '21', name: 'Wieprzowina z warzywami na ostro', price: 26 },
+  { id: '22', cat: 'wieprzowina', num: '22', name: 'Wieprzowina po secsyńsku', price: 27 },
+
+  // Wołowina
+  { id: '30', cat: 'wołowina', num: '30', name: 'Wołowina z cebulą', price: 31 },
+  { id: '31', cat: 'wołowina', num: '31', name: 'Wołowina w sosie pieprzowym', price: 32 },
+  { id: '32', cat: 'wołowina', num: '32', name: 'Wołowina pięciu smaków', price: 31 },
+
+  // Kaczka
+  { id: '40', cat: 'kaczka', num: '40', name: 'Kaczka chrupiąca z warzywami', price: 35 },
+  { id: '41', cat: 'kaczka', num: '41', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
+
+  // Ryby i Krewetki
+  { id: '50', cat: 'ryby_krewetki', num: '50', name: 'Krewetki w cieście', price: 34 },
+  { id: '51', cat: 'ryby_krewetki', num: '51', name: 'Ryba w sosie słodko-kwaśnym', price: 29 },
+
+  // Makaron i Ryż
+  { id: '60', cat: 'makaron_ryz', num: '60', name: 'Smażony makaron z kurczakiem', price: 26 },
+  { id: '61', cat: 'makaron_ryz', num: '61', name: 'Smażony ryż po wietnamsku', price: 25 },
+  { id: '62', cat: 'makaron_ryz', num: '62', name: 'Pad Thai z kurczakiem', price: 28 },
+
+  // Dodatki i Inne (w tym specjalna pozycja sajgonek)
+  { id: '70', cat: 'dodatki', num: '70', name: 'Sajgonki wieprzowe (3 szt.)', price: 18 },
+  { id: '71', cat: 'dodatki', num: '71', name: 'Sajgonki wieprzowe - PODWÓJNA PORCJA (6 szt. w 1 opakowaniu)', price: 36, isDoublePack: true },
+  { id: '72', cat: 'dodatki', num: '72', name: 'Dodatkowy ryż', price: 7 },
+  { id: '73', cat: 'dodatki', num: '73', name: 'Dodatkowy sos słodko-kwaśny', price: 5 }
 ];
 
 export default function App() {
-  const [user, setUser] = useState(null);
-
-  // Config state (Session synced via Firestore)
-  const [session, setSession] = useState({
-    status: 'open', // 'open', 'closed', 'add_on'
-    date: 'Piątek',
-    deliveryTime: '12:30',
-    blikPhone: '790 389 092',
-    revolutTag: '@mai_mai_order',
-    organizerName: 'Marek',
-    note: 'Zamówienia zbieramy do godziny 11:30.',
-    allowNotes: false
-  });
-
-  // Flat list of order items synced via Firestore
-  const [orderItems, setOrderItems] = useState([]);
-
-  // Local form state
+  // Stany użytkownika i sesji
   const [userName, setUserName] = useState('');
-  const [selectedPayment, setSelectedPayment] = useState('BLIK');
-  const [selectedCategory, setSelectedCategory] = useState(MENU_DATA[0].category);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [customNote, setCustomNote] = useState('');
+  const [userId, setUserId] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // Stany sesji z bazy
+  const [session, setSession] = useState({
+    isOpen: true,
+    deliveryDate: '',
+    deliveryTime: '12:00'
+  });
+  const [orders, setOrders] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('zupy');
 
-  // UI state
-  const [copiedBlik, setCopiedBlik] = useState(false);
-  const [activeTab, setActiveTab] = useState('order_view');
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  // Stany widoków i modali
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState('order'); // 'order', 'summary', 'stats'
 
-  const canvasRef = useRef(null);
-
-  // --- FIREBASE AUTHENTICATION (RULE 3) ---
+  // Inicjalizacja domyślnej daty (jutro)
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) {
-        console.error("Firebase auth error:", err);
-      }
-    };
-    initAuth();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().split('T')[0];
+    
+    // Pobierz lub stwórz ID użytkownika
+    let storedId = localStorage.getItem('mai_mai_user_id');
+    if (!storedId) {
+      storedId = 'user_' + Math.random().toString(36.substring(2, 9));
+      localStorage.setItem('mai_mai_user_id', storedId);
+    }
+    setUserId(storedId);
 
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsubscribe();
-  }, []);
+    const storedName = localStorage.getItem('mai_mai_user_name');
+    if (storedName) {
+      setUserName(storedName);
+      setIsLoggedIn(true);
+    }
 
-  // --- REALTIME FIRESTORE LISTENERS (RULE 1 & RULE 2) ---
-  useEffect(() => {
-    if (!user) return;
-
-    // 1. Session Config Listener (Public path)
-    const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'session');
-    const unsubSession = onSnapshot(sessionDocRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setSession(snapshot.data());
+    // Nasłuch sesji z Firebase
+    const unsubSession = onSnapshot(doc(db, "config", "session"), (docSnap) => {
+      if (docSnap.exists()) {
+        setSession(docSnap.data());
       } else {
-        // Initialize default session config if none exists
-        setDoc(sessionDocRef, {
-          status: 'open',
-          date: 'Piątek',
-          deliveryTime: '12:30',
-          blikPhone: '790 389 092',
-          revolutTag: '@mai_mai_order',
-          organizerName: 'Marek',
-          note: 'Zamówienia zbieramy do godziny 11:30.',
-          allowNotes: false
-        }).catch(console.error);
+        // Ustaw domyślne jeśli brak
+        const defaultSession = { isOpen: true, deliveryDate: dateStr, deliveryTime: '12:00' };
+        setDoc(doc(db, "config", "session"), defaultSession);
+        setSession(defaultSession);
       }
-    }, (error) => console.error("Session sync error:", error));
+    });
 
-    // 2. Orders Listener (Public path)
-    const ordersColRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-    const unsubOrders = onSnapshot(ordersColRef, (snapshot) => {
-      const items = [];
-      snapshot.forEach((docSnap) => {
-        items.push({ id: docSnap.id, ...docSnap.data() });
-      });
-      setOrderItems(items);
-    }, (error) => console.error("Orders sync error:", error));
+    // Nasłuch zamówień z Firebase
+    const unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
+      const ords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setOrders(ords);
+    });
 
     return () => {
       unsubSession();
       unsubOrders();
     };
-  }, [user]);
+  }, []);
 
-  // Update session config in Firestore
-  const handleUpdateSession = async (newSession) => {
-    setSession(newSession);
-    if (!user) return;
-    try {
-      const sessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'session');
-      await setDoc(sessionDocRef, newSession, { merge: true });
-    } catch (e) {
-      console.error("Error updating session:", e);
-    }
+  // Logowanie użytkownika
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!userName.trim()) return;
+    localStorage.setItem('mai_mai_user_name', userName.trim());
+    setIsLoggedIn(true);
   };
 
-  // Add dish for user in Firestore
-  const handleAddItem = async (menuItem) => {
-    if (!userName.trim()) {
-      alert("Proszę najpierw podać swoje Imię i Nazwisko w polu zamawiającego!");
+  // Dodanie zamówienia / zmiana ilości
+  const handleUpdateItemQuantity = async (menuItem, change) => {
+    if (!session.isOpen) {
+      alert("Sesja jest zamknięta! Nie można modyfikować zamówień.");
       return;
     }
 
-    const boxFee = menuItem.requiresBox ? 1.50 : 0.00;
-    const finalItemPrice = menuItem.price + boxFee;
-    const itemId = 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    // Szukaj czy użytkownik ma już ten item w zamówieniach
+    const existingOrder = orders.find(o => o.userId === userId && o.menuItemId === menuItem.id);
 
-    const newEntry = {
-      code: menuItem.id,
-      name: menuItem.name,
-      person: userName.trim(),
-      dishPrice: menuItem.price,
-      boxPrice: boxFee,
-      totalPrice: finalItemPrice,
-      note: session.allowNotes ? customNote.trim() : '',
-      paymentMethod: selectedPayment,
-      isAddOn: session.status === 'add_on',
-      timestamp: new Date().toISOString()
-    };
+    if (existingOrder) {
+      const newQty = existingOrder.quantity + change;
+      if (newQty <= 0) {
+        // Usuń pozycję
+        await deleteDoc(doc(db, "orders", existingOrder.id));
+      } else {
+        // Zaktualizuj ilość
+        await updateDoc(doc(db, "orders", existingOrder.id), {
+          quantity: newQty
+        });
+      }
+    } else if (change > 0) {
+      // Dodaj nową pozycję
+      const newOrderRef = doc(collection(db, "orders"));
+      await setDoc(newOrderRef, {
+        userId: userId,
+        userName: userName.trim(),
+        menuItemId: menuItem.id,
+        itemNum: menuItem.num,
+        itemName: menuItem.name,
+        price: menuItem.price,
+        isDoublePack: menuItem.isDoublePack || false,
+        quantity: 1,
+        isExtra: false, // flaga dla posiłków domawianych pod listą
+        timestamp: Date.now()
+      });
+    }
+  };
 
-    // Optimistic UI update
-    setOrderItems(prev => [...prev, { id: itemId, ...newEntry }]);
-    setCustomNote('');
+  // Przełącznik flaga "Domawiane" (dla admina lub użytkownika)
+  const toggleExtraItem = async (orderId, currentExtraStatus) => {
+    await updateDoc(doc(db, "orders", orderId), {
+      isExtra: !currentExtraStatus
+    });
+  };
 
-    if (user) {
-      try {
-        const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', itemId);
-        await setDoc(orderDocRef, newEntry);
-      } catch (err) {
-        console.error("Error adding order:", err);
+  // Sprawdzenie PINu admina
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    if (adminPinInput === ADMIN_PIN) {
+      setIsAdmin(true);
+      setIsAdminModalOpen(false);
+      setAdminPinInput('');
+    } else {
+      alert("Nieprawidłowy PIN!");
+    }
+  };
+
+  // Zmiana statusu sesji (otwarta/zamknięta) przez admina
+  const toggleSessionStatus = async () => {
+    if (!isAdmin) {
+      setIsAdminModalOpen(true);
+      return;
+    }
+    await updateDoc(doc(db, "config", "session"), {
+      isOpen: !session.isOpen
+    });
+  };
+
+  // Zmiana daty/godziny dostawy
+  const handleUpdateSessionMeta = async (field, value) => {
+    if (!isAdmin) {
+      setIsAdminModalOpen(true);
+      return;
+    }
+    await updateDoc(doc(db, "config", "session"), {
+      [field]: value
+    });
+  };
+
+  // Reset całej sesji (usunięcie wszystkich zamówień)
+  const handleResetSession = async () => {
+    if (!isAdmin) {
+      setIsAdminModalOpen(true);
+      return;
+    }
+    if (window.confirm("Czy na pewno chcesz zresetować wszystkie zamówienia i otworzyć nową sesję?")) {
+      for (const ord of orders) {
+        await deleteDoc(doc(db, "orders", ord.id));
       }
     }
   };
 
-  // Remove dish from Firestore
-  const handleRemoveItem = async (id) => {
-    setOrderItems(prev => prev.filter(item => item.id !== id));
-    if (user) {
-      try {
-        const orderDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', id);
-        await deleteDoc(orderDocRef);
-      } catch (err) {
-        console.error("Error deleting order:", err);
-      }
-    }
-  };
-
-  // Grouped breakdown by person
-  const personBreakdown = orderItems.reduce((acc, item) => {
-    if (!acc[item.person]) {
-      acc[item.person] = {
-        total: 0,
-        itemsCount: 0,
-        paymentMethod: item.paymentMethod || 'BLIK',
-        dishList: []
-      };
-    }
-    acc[item.person].total += item.totalPrice;
-    acc[item.person].itemsCount += 1;
-    acc[item.person].paymentMethod = item.paymentMethod;
-    acc[item.person].dishList.push(item);
-    return acc;
-  }, {});
-
-  // Grand total for restaurant
-  const grandTotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  // Obliczenia podsumowania
+  const packagingFee = 1.50;
   
-  // Aggregated breakdown for restaurant
-  const aggregatedForRestaurant = orderItems.reduce((acc, item) => {
-    const noteKey = session.allowNotes ? (item.note || '') : '';
-    const key = `${item.code}_${item.name}_${noteKey}`;
-    if (!acc[key]) {
-      acc[key] = {
-        code: item.code,
-        name: item.name,
-        note: noteKey,
-        unitPrice: item.dishPrice,
-        quantity: 0,
-        totalPrice: 0
-      };
-    }
-    acc[key].quantity += 1;
-    acc[key].totalPrice += item.totalPrice;
-    return acc;
-  }, {});
+  // Unikalni użytkownicy którzy coś zamówili
+  const activeUsers = [...new Set(orders.map(o => o.userName))];
 
-  const restaurantSummaryList = Object.values(aggregatedForRestaurant);
+  // Grupowanie zamówień dla restauracji (osobne pozycje bez podsumowania zbiorczego)
+  // Rozdzielamy na zwykłe i domawiane
+  const regularOrders = orders.filter(o => !o.isExtra);
+  const extraOrders = orders.filter(o => o.isExtra);
 
-  // Copy helpers
-  const copyBlik = () => {
-    navigator.clipboard.writeText(session.blikPhone);
-    setCopiedBlik(true);
-    setTimeout(() => setCopiedBlik(false), 2000);
-  };
-
-  // GENERATOR ZDJĘCIA MMS NA CANVAS
-  const generateMmsImage = () => {
-    setIsGeneratingImage(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
+  // Generowanie tekstu do SMS / MMS / Schowka
+  const generateMmsText = () => {
+    let text = `BAR MAI MAI - ZAMÓWIENIE\n`;
+    text += `Dostawa: ${session.deliveryDate} o godz. ${session.deliveryTime}\n\n`;
     
-    // Canvas dimensions
-    const width = 800;
-    const padding = 40;
-    const rowHeight = 44;
-    const headerHeight = 160;
-    const footerHeight = 100;
-    const totalRows = restaurantSummaryList.length;
-    const height = headerHeight + (totalRows * rowHeight) + footerHeight + 40;
-
-    canvas.width = width;
-    canvas.height = height;
-
-    // Background gradient
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-    bgGradient.addColorStop(0, '#0f172a');
-    bgGradient.addColorStop(1, '#020617');
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, width, height);
-
-    // Outer Border
-    ctx.strokeStyle = '#dc2626';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(10, 10, width - 20, height - 20);
-
-    // Header Banner
-    ctx.fillStyle = '#dc2626';
-    ctx.fillRect(padding, 30, width - (padding * 2), 65);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('BAR MAI MAI (WRONKI) - ZAMÓWIENIE', width / 2, 68);
-
-    // Subheader details
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '15px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(`📅 Data/Godzina: ${session.date}, godz. ${session.deliveryTime}`, padding, 125);
-    ctx.fillText(`📦 Łączna ilość pozycji: ${orderItems.length} szt.`, padding + 400, 125);
-
-    // Table Header Background
-    const tableTop = 150;
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(padding, tableTop, width - (padding * 2), 36);
-
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText('ILOŚĆ', padding + 15, tableTop + 23);
-    ctx.fillText('KOD', padding + 90, tableTop + 23);
-    ctx.fillText('NAZWA DANIA', padding + 160, tableTop + 23);
-    if (session.allowNotes) {
-      ctx.fillText('UWAGI', padding + 520, tableTop + 23);
-    }
-    ctx.textAlign = 'right';
-    ctx.fillText('KWOTA', width - padding - 15, tableTop + 23);
-
-    // Table Rows
-    let currentY = tableTop + 36;
-    restaurantSummaryList.forEach((item, idx) => {
-      ctx.fillStyle = idx % 2 === 0 ? '#0f172a' : '#1e293b';
-      ctx.fillRect(padding, currentY, width - (padding * 2), rowHeight);
-
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(padding, currentY + rowHeight);
-      ctx.lineTo(width - padding, currentY + rowHeight);
-      ctx.stroke();
-
-      ctx.fillStyle = '#fbbf24';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`${item.quantity}x`, padding + 15, currentY + 27);
-
-      ctx.fillStyle = '#f87171';
-      ctx.font = 'bold 15px monospace';
-      ctx.fillText(`#${item.code}`, padding + 90, currentY + 27);
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = 'bold 14px sans-serif';
-      let nameText = item.name;
-      const maxNameLen = session.allowNotes ? 35 : 55;
-      if (nameText.length > maxNameLen) nameText = nameText.substring(0, maxNameLen - 3) + '...';
-      ctx.fillText(nameText, padding + 160, currentY + 27);
-
-      if (session.allowNotes) {
-        ctx.fillStyle = '#cbd5e1';
-        ctx.font = 'italic 12px sans-serif';
-        let noteText = item.note || '-';
-        if (noteText.length > 20) noteText = noteText.substring(0, 18) + '...';
-        ctx.fillText(noteText, padding + 520, currentY + 27);
-      }
-
-      ctx.fillStyle = '#34d399';
-      ctx.font = 'bold 15px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(`${item.totalPrice.toFixed(2)} zł`, width - padding - 15, currentY + 27);
-
-      currentY += rowHeight;
+    text += `--- GŁÓWNA LISTA ---\n`;
+    regularOrders.forEach((ord, index) => {
+      const opakowaniaInfo = ord.isDoublePack ? ` (2 porcje w 1 opak.)` : ``;
+      text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} x${ord.quantity}${opakowaniaInfo} [Zamawiający: ${ord.userName}]\n`;
     });
 
-    currentY += 15;
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(padding, currentY, width - (padding * 2), 60);
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(padding, currentY, width - (padding * 2), 60);
+    if (extraOrders.length > 0) {
+      text += `\n--- POSIŁKI DOMAWIANE (PROSZĘ NIE MYLIĆ) ---\n`;
+      extraOrders.forEach((ord, index) => {
+        text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} x${ord.quantity} [DOMÓWIENIE]\n`;
+      });
+    }
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('SUMA CAŁKOWITA ZAMÓWIENIA:', padding + 20, currentY + 36);
-
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${grandTotal.toFixed(2)} PLN`, width - padding - 20, currentY + 38);
-
-    setTimeout(() => {
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `Zamowienie_MaiMai_${session.date.replace(/\s+/g, '_')}.png`;
-      link.href = dataUrl;
-      link.click();
-      setIsGeneratingImage(false);
-    }, 150);
+    return text;
   };
 
-  // Menu Search Filter
-  const filteredCategories = MENU_DATA.map(cat => {
-    const items = cat.items.filter(i => 
-      i.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      i.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generateMmsText());
+    alert("Podsumowanie skopiowane do schowka! Możesz wklejć do MMS lub wiadomości.");
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-slate-100">
+        <div className="bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-md w-full">
+          <div className="flex items-center justify-center mb-6 text-amber-400">
+            <Utensils size={48} />
+          </div>
+          <h1 className="text-2xl font-bold text-center mb-2">Bar Mai Mai - Zamówienia</h1>
+          <p className="text-slate-400 text-center text-sm mb-6">Podaj swoje imię, aby dołączyć do wspólnego zamawiania.</p>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1 font-semibold">Twoje Imię</label>
+              <input 
+                type="text" 
+                value={userName} 
+                onChange={(e) => setUserName(e.target.value)} 
+                placeholder="np. Łukasz" 
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-amber-500"
+                required
+              />
+            </div>
+            <button 
+              type="submit" 
+              className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg"
+            >
+              Wejdź do aplikacji
+            </button>
+          </form>
+        </div>
+      </div>
     );
-    return { ...cat, items };
-  }).filter(cat => cat.items.length > 0);
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-16">
-      <canvas ref={canvasRef} className="hidden" />
-
-      {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-2xl">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12">
+      {/* NAGŁÓWEK */}
+      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-tr from-red-600 to-amber-500 p-2.5 rounded-2xl shadow-lg text-white">
-              <Utensils className="w-6 h-6" />
+            <div className="bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-xl text-amber-400">
+              <Utensils size={24} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
-                Bar Mai Mai <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full border border-red-500/30 font-semibold">Wronki</span>
+              <h1 className="text-lg font-bold flex items-center gap-2">
+                Bar Mai Mai 
+                <span className={`text-xs px-2 py-0.5 rounded-full ${session.isOpen ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
+                  {session.isOpen ? 'Sesja Otwarta' : 'Sesja Zamknięta'}
+                </span>
               </h1>
-              <p className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
-                <span className="flex items-center gap-1 text-slate-300 font-medium">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" /> {session.date}, godz. {session.deliveryTime}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                  <Smartphone className="w-3.5 h-3.5" /> BLIK: {session.blikPhone}
-                </span>
-              </p>
+              <div className="text-xs text-slate-400 flex items-center gap-3 mt-0.5">
+                <span className="flex items-center gap-1"><Calendar size={12}/> {session.deliveryDate}</span>
+                <span className="flex items-center gap-1"><Clock size={12}/> {session.deliveryTime}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {session.status === 'open' && (
-              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Otwarte
-              </span>
-            )}
-            {session.status === 'add_on' && (
-              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Domawianie
-              </span>
-            )}
-            {session.status === 'closed' && (
-              <span className="bg-rose-500/10 text-rose-400 border border-rose-500/30 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5" /> Zamknięte
-              </span>
-            )}
+          {/* NAWIGACJA / AKCJIE */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 text-xs flex items-center gap-2">
+              <User size={14} className="text-amber-400" />
+              <span>Zalogowany: <strong>{userName}</strong></span>
+              <button 
+                onClick={() => { localStorage.removeItem('mai_mai_user_name'); setIsLoggedIn(false); }} 
+                className="text-slate-400 hover:text-rose-400 ml-2"
+                title="Zmień użytkownika"
+              >
+                (zmiana)
+              </button>
+            </div>
 
-            <button
-              onClick={() => setActiveTab(activeTab === 'order_view' ? 'admin_config' : 'order_view')}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all"
+            <button 
+              onClick={() => setActiveTab('order')}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'order' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
             >
-              <Settings className="w-4 h-4 text-slate-400" />
-              {activeTab === 'order_view' ? 'Zarządzaj sesją' : 'Wróć do listy'}
+              Menu
+            </button>
+            <button 
+              onClick={() => setActiveTab('summary')}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-all relative ${activeTab === 'summary' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
+            >
+              Podsumowanie i SMS
+              {orders.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  {orders.reduce((acc, o) => acc + o.quantity, 0)}
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab('stats')}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'stats' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
+            >
+              Statystyki
+            </button>
+
+            {/* PANEL ADMINA TRIGGER */}
+            <button 
+              onClick={() => {
+                if (isAdmin) {
+                  setIsAdmin(false);
+                } else {
+                  setIsAdminModalOpen(true);
+                }
+              }}
+              className={`p-2 rounded-xl border text-xs flex items-center gap-1.5 ${isAdmin ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'}`}
+              title="Panel Administratora"
+            >
+              <ShieldCheck size={16} />
+              {isAdmin ? 'Admin OK' : 'Admin'}
             </button>
           </div>
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="max-w-6xl mx-auto px-4 mt-6 space-y-8">
-
-        {/* ADMIN CONFIGURATION TAB */}
-        {activeTab === 'admin_config' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Settings className="w-5 h-5 text-amber-400" /> Konfiguracja Sesji (Organizator)
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Status Zamówienia</label>
-                <select
-                  value={session.status}
-                  onChange={(e) => handleUpdateSession({ ...session, status: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                >
-                  <option value="open">🟢 Otwarte na zamówienia</option>
-                  <option value="add_on">🟡 Domawianie (Dodatkowa dogrywka)</option>
-                  <option value="closed">🔴 Zamknięte (Brak zmian)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Dzień i Godzina Dostawy</label>
-                <input
-                  type="text"
-                  value={session.deliveryTime}
-                  onChange={(e) => handleUpdateSession({ ...session, deliveryTime: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Numer do BLIK</label>
-                <input
-                  type="text"
-                  value={session.blikPhone}
-                  onChange={(e) => handleUpdateSession({ ...session, blikPhone: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Pozwalaj na Uwagi</label>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateSession({ ...session, allowNotes: !session.allowNotes })}
-                  className={`w-full font-bold text-xs px-3 py-2.5 rounded-xl border flex items-center justify-between transition-all ${
-                    session.allowNotes 
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                  }`}
-                >
-                  <span>{session.allowNotes ? '🟢 Uwagi WŁĄCZONE' : '🔴 Uwagi WYŁĄCZONE'}</span>
-                  <span className="text-[10px] bg-slate-950 px-2 py-0.5 rounded border border-slate-800">Przełącz</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setActiveTab('order_view')}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg flex items-center gap-2"
+      {/* PASEK STEROWANIA ADMINA (jeśli zalogowany) */}
+      {isAdmin && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span className="text-amber-400 font-semibold flex items-center gap-1.5">
+              <ShieldCheck size={14} /> Tryb Administratora aktywny:
+            </span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button 
+                onClick={toggleSessionStatus}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all ${session.isOpen ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
               >
-                <Check className="w-4 h-4" /> Zapisz i zamknij
+                {session.isOpen ? 'Zamknij sesję zamówień'  : 'Otwórz sesję zamówień'}
+              </button>
+
+              <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
+                <span className="text-slate-400">Dostawa:</span>
+                <input 
+                  type="date" 
+                  value={session.deliveryDate} 
+                  onChange={(e) => handleUpdateSessionMeta('deliveryDate', e.target.value)}
+                  className="bg-slate-800 text-slate-100 px-2 py-0.5 rounded border border-slate-700 text-xs"
+                />
+                <input 
+                  type="time" 
+                  value={session.deliveryTime} 
+                  onChange={(e) => handleUpdateSessionMeta('deliveryTime', e.target.value)}
+                  className="bg-slate-800 text-slate-100 px-2 py-0.5 rounded border border-slate-700 text-xs"
+                />
+              </div>
+
+              <button 
+                onClick={handleResetSession}
+                className="bg-slate-800 hover:bg-rose-950 text-rose-400 border border-rose-800/50 px-3 py-1.5 rounded-lg font-medium"
+              >
+                Resetuj sesję
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* --- DANE ZAMAWIAJĄCEGO I PŁATNOŚĆ --- */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-            <User className="w-5 h-5 text-amber-400" />
-            <h2 className="text-base font-bold text-white">Twoje Dane i Metoda Płatności</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Imię i Nazwisko zamawiającego *</label>
-              <input
-                type="text"
-                placeholder="np. Jan Kowalski"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500 placeholder-slate-600"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Forma Rozliczenia z Organizatorem</label>
-              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPayment('BLIK')}
-                  className={`py-1.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1 transition-all ${
-                    selectedPayment === 'BLIK' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Smartphone className="w-3.5 h-3.5" /> BLIK
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPayment('Revolut')}
-                  className={`py-1.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1 transition-all ${
-                    selectedPayment === 'Revolut' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" /> Revolut
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPayment('Gotówka')}
-                  className={`py-1.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1 transition-all ${
-                    selectedPayment === 'Gotówka' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Banknote className="w-3.5 h-3.5" /> Gotówka
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-slate-400 font-medium block">Suma Twoich dań do przelewu:</span>
-                <span className="text-xl font-black text-amber-400">
-                  {userName.trim() && personBreakdown[userName.trim()]
-                    ? `${personBreakdown[userName.trim()].total.toFixed(2)} PLN`
-                    : '0.00 PLN'}
-                </span>
-              </div>
-
-              {selectedPayment === 'BLIK' && (
-                <button
-                  onClick={copyBlik}
-                  className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all"
-                >
-                  {copiedBlik ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedBlik ? 'Skopiowano' : `BLIK: ${session.blikPhone}`}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {session.allowNotes ? (
-            <div className="flex items-center gap-3 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
-              <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Uwaga do kolejnego dania:</span>
-              <input
-                type="text"
-                placeholder="np. bardzo pikantne, bez cebuli..."
-                value={customNote}
-                onChange={(e) => setCustomNote(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-amber-500"
-              />
-            </div>
-          ) : (
-            <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl flex items-center gap-2 text-xs text-amber-400 font-medium">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>Organizator wyłączył możliwość dodawania uwag do dań dla tej sesji.</span>
-            </div>
-          )}
-        </section>
-
-        {/* --- MENU WYBORU DAŃ --- */}
-        {session.status !== 'closed' ? (
-          <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Utensils className="w-5 h-5 text-amber-400" />
-                <h2 className="text-lg font-bold text-white">Menu Bar Mai Mai</h2>
-              </div>
-
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Szukaj po nazwie lub kodzie (np. 311)..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-              {MENU_DATA.map(cat => (
-                <button
-                  key={cat.category}
-                  onClick={() => setSelectedCategory(cat.category)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                    selectedCategory === cat.category
-                      ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white shadow-md'
-                      : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-                  }`}
-                >
-                  <span>{cat.icon}</span>
-                  <span>{cat.category}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredCategories
-                .filter(cat => searchQuery ? true : cat.category === selectedCategory)
-                .map(cat => cat.items.map(item => (
-                  <div
-                    key={item.id}
-                    className="bg-slate-950 border border-slate-800/80 hover:border-slate-700 p-3.5 rounded-xl flex flex-col justify-between space-y-2 group transition-all"
+      {/* GŁÓWNA ZAWARTOŚĆ */}
+      <main className="max-w-7xl mx-auto px-4 mt-6">
+        {activeTab === 'order' && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            {/* KATEGORIE PO LEWEJ STRONIE (BEZ SCROLLA POZIOMEGO) */}
+            <div className="lg:col-span-1 space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1 mb-3">Kategorie menu</h3>
+              <div className="flex flex-col gap-1.5">
+                {MENU_CATEGORIES.map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${activeCategory === cat.id ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/10' : 'bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300'}`}
                   >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="font-mono text-xs font-bold text-red-400 bg-red-950/60 border border-red-900/50 px-2 py-0.5 rounded">
-                          #{item.id}
-                        </span>
-                        <span className="text-[11px] text-slate-500">{item.weight}</span>
-                      </div>
-                      <h3 className="font-semibold text-sm text-slate-100 mt-1.5 group-hover:text-amber-400 transition-colors">
-                        {item.name}
-                      </h3>
-                    </div>
+                    <span>{cat.name}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${activeCategory === cat.id ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                      {MENU_ITEMS.filter(i => i.cat === cat.id).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-900">
-                      <div>
-                        <span className="text-base font-bold text-emerald-400">
-                          {(item.price + (item.requiresBox ? 1.50 : 0)).toFixed(2)} zł
-                        </span>
-                        {item.requiresBox && (
-                          <span className="block text-[10px] text-amber-500/80 font-medium">
-                            (w tym +1,50 zł opakowanie)
-                          </span>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => handleAddItem(item)}
-                        className="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 font-bold text-xs px-3 py-1.5 rounded-lg border border-slate-700 transition-all flex items-center gap-1 active:scale-95"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Dodaj
-                      </button>
-                    </div>
-                  </div>
-                )))}
-            </div>
-          </section>
-        ) : (
-          <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-6 text-center text-rose-400">
-            <Lock className="w-8 h-8 mx-auto mb-2 opacity-80" />
-            <h3 className="font-bold text-lg">Sesja zamawiania jest obecnie zamknięta</h3>
-            <p className="text-xs text-rose-300 mt-1">Organizator zamknął opcję dodawania nowych pozycji do listy.</p>
-          </div>
-        )}
-
-        {/* --- TABELA 1: SZCZEGÓŁOWA LISTA ZAMÓWIENIA --- */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <FileText className="w-5 h-5 text-amber-400" /> Tabela 1: Szczegółowa Lista Zamówień
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Widok z podziałem na osoby (Układ: Numer / Danie / Osoba / Kwota z opłatą 1,50 zł za opakowanie)
-              </p>
-            </div>
-            <div className="text-xs text-slate-300 font-semibold bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-              Suma wszystkich dań: <span className="text-emerald-400 font-bold">{grandTotal.toFixed(2)} zł</span>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-xl border border-slate-800">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4 w-24">Numer</th>
-                  <th className="py-3 px-4">Danie / Pozycja</th>
-                  <th className="py-3 px-4">Osoba / Płatność</th>
-                  <th className="py-3 px-4 text-right">Kwota</th>
-                  <th className="py-3 px-4 w-12 text-center"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {orderItems.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="text-center py-8 text-slate-500 italic">
-                      Brak pozycji w zamówieniu. Dodaj pierwsze danie z menu powyżej.
-                    </td>
-                  </tr>
+              {/* MOJE AKTUALNE ZAMÓWIENIA (WIDŻET BOCZNY) */}
+              <div className="mt-8 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                  <Utensils size={14} className="text-amber-400" /> Twoje zamówienia w sesji
+                </h4>
+                {orders.filter(o => o.userId === userId).length === 0 ? (
+                  <p className="text-xs text-slate-500 italic">Nie dodałeś jeszcze nic do koszyka.</p>
                 ) : (
-                  orderItems.map((item) => (
-                    <tr 
-                      key={item.id} 
-                      className={`hover:bg-slate-800/40 transition-colors ${
-                        item.person === userName.trim() ? 'bg-amber-500/5' : ''
-                      }`}
-                    >
-                      <td className="py-2.5 px-4 font-mono font-bold text-red-400 whitespace-nowrap">
-                        #{item.code}
-                      </td>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {orders.filter(o => o.userId === userId).map(item => (
+                      <div key={item.id} className="bg-slate-950/50 border border-slate-800/80 p-2.5 rounded-xl flex items-center justify-between text-xs">
+                        <div className="truncate pr-2">
+                          <span className="font-semibold text-amber-400 mr-1">#{item.itemNum}</span>
+                          <span className="text-slate-200">{item.itemName}</span>
+                          <div className="text-[10px] text-slate-400">{item.price} zł x {item.quantity} = {item.price * item.quantity} zł</div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button 
+                            onClick={() => handleUpdateItemQuantity({ id: item.menuItemId, num: item.itemNum, name: item.itemName, price: item.price, isDoublePack: item.isDoublePack }, -1)}
+                            className="w-6 h-6 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300"
+                            disabled={!session.isOpen}
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className="w-5 text-center font-bold text-slate-200">{item.quantity}</span>
+                          <button 
+                            onClick={() => handleUpdateItemQuantity({ id: item.menuItemId, num: item.itemNum, name: item.itemName, price: item.price, isDoublePack: item.isDoublePack }, 1)}
+                            className="w-6 h-6 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300"
+                            disabled={!session.isOpen}
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
 
-                      <td className="py-2.5 px-4">
-                        <div className="font-semibold text-slate-200">{item.name}</div>
-                        {session.allowNotes && item.note && (
-                          <div className="text-[11px] text-amber-400 italic mt-0.5">
-                            Uwaga: {item.note}
+            {/* LISTA DAŃ W WYBRANEJ KATEGORII */}
+            <div className="lg:col-span-3 space-y-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                <h3 className="text-lg font-bold mb-4 capitalize text-amber-400">
+                  {MENU_CATEGORIES.find(c => c.id === activeCategory)?.name}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {MENU_ITEMS.filter(item => item.cat === activeCategory).map(item => {
+                    const myItemOrder = orders.find(o => o.userId === userId && o.menuItemId === item.id);
+                    const qty = myItemOrder ? myItemOrder.quantity : 0;
+
+                    return (
+                      <div key={item.id} className="bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 p-4 rounded-2xl flex flex-col justify-between transition-all">
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold px-2 py-0.5 rounded-lg">
+                              Poz. {item.num}
+                            </span>
+                            <span className="text-base font-bold text-slate-100">
+                              {item.price} zł
+                            </span>
                           </div>
-                        )}
-                        <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-2">
-                          <span>Danie: {item.dishPrice.toFixed(2)} zł</span>
-                          {item.boxPrice > 0 && (
-                            <span className="text-amber-500/90 font-medium">+ 1,50 zł opakowanie</span>
+                          <h4 className="font-semibold text-slate-200 text-sm mt-1">{item.name}</h4>
+                          {item.isDoublePack && (
+                            <span className="inline-block bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] px-2 py-0.5 rounded mt-1">
+                              Specjalne: 2 porcje w 1 opakowaniu (+1,50 zł opakowanie)
+                            </span>
                           )}
                         </div>
-                      </td>
 
-                      <td className="py-2.5 px-4 font-medium text-slate-300 whitespace-nowrap">
-                        <div>{item.person}</div>
-                        <span className="text-[10px] text-slate-500 font-semibold uppercase">
-                          [{item.paymentMethod}]
-                        </span>
-                      </td>
-
-                      <td className="py-2.5 px-4 font-bold text-emerald-400 text-right whitespace-nowrap">
-                        {item.totalPrice.toFixed(2)} zł
-                      </td>
-
-                      <td className="py-2.5 px-4 text-center">
-                        <button
-                          onClick={() => handleRemoveItem(item.id)}
-                          className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded"
-                          title="Usuń pozycję"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* --- TABELA 2: PODSUMOWANIE DLA RESTAURACJI + GENERATOR ZDJĘCIA MMS --- */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <ChefHat className="w-5 h-5 text-red-500" /> Tabela 2: Podsumowanie dla Restauracji (MMS)
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Zagregowana lista dań z ilościami gotowa do wygenerowania obrazka MMS
-              </p>
+                        <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between">
+                          <span className="text-xs text-slate-400">
+                            {qty > 0 ? `Wybrano: ${qty} szt.` : 'Brak w Twoim zamówieniu'}
+                          </span>
+                          
+                          <div className="flex items-center gap-2">
+                            {qty > 0 && (
+                              <button 
+                                onClick={() => handleUpdateItemQuantity(item, -1)}
+                                className="w-8 h-8 bg-slate-800 hover:bg-rose-950/50 hover:text-rose-400 border border-slate-700 rounded-xl flex items-center justify-center transition-all"
+                                disabled={!session.isOpen}
+                              >
+                                <Minus size={14} />
+                              </button>
+                            )}
+                            {qty > 0 && <span className="font-bold w-4 text-center text-sm">{qty}</span>}
+                            <button 
+                              onClick={() => handleUpdateItemQuantity(item, 1)}
+                              className={`px-3.5 h-8 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all ${session.isOpen ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-lg shadow-amber-500/10' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
+                              disabled={!session.isOpen}
+                            >
+                              <Plus size={14} /> Dodaj
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
-            <button
-              onClick={generateMmsImage}
-              disabled={orderItems.length === 0 || isGeneratingImage}
-              className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg active:scale-95"
-            >
-              <ImageIcon className="w-4 h-4" />
-              {isGeneratingImage ? 'Generowanie zdjęcia...' : 'Pobierz zdjęcie MMS (PNG)'}
-            </button>
           </div>
+        )}
 
-          <div className="overflow-x-auto rounded-xl border border-slate-800">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4 w-16 text-center">Ilość</th>
-                  <th className="py-3 px-4 w-24">Kod</th>
-                  <th className="py-3 px-4">Nazwa Dania</th>
-                  {session.allowNotes && <th className="py-3 px-4">Uwagi / Wytyczne</th>}
-                  <th className="py-3 px-4 text-right">Suma kwota</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {restaurantSummaryList.length === 0 ? (
-                  <tr>
-                    <td colSpan={session.allowNotes ? 5 : 4} className="text-center py-8 text-slate-500 italic">
-                      Brak pozycji do wyświetlenia w tabeli restauracyjnej.
-                    </td>
-                  </tr>
+        {/* ZAKŁADKA PODSUMOWANIA (DLA RESTAURACJI I ROZLICZEŃ) */}
+        {activeTab === 'summary' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            
+            {/* WIDOK DLA RESTAURACJI (BEZ ZBIORCZEGO PODSUMOWANIA - OSOBNE POZYCJE) */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
+                    <FileText size={20} /> Podsumowanie do wysłania restauracji
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">Każde danie jako osobna pozycja. Uporządkowane po numerach i nazwach.</p>
+                </div>
+                <button 
+                  onClick={copyToClipboard}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg"
+                >
+                  <Share2 size={14} /> Skopiuj tekst do MMS / SMS
+                </button>
+              </div>
+
+              {/* LISTA GŁÓWNA */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
+                  Główna lista dań ({regularOrders.reduce((acc, o) => acc + o.quantity, 0)} poz.)
+                </h4>
+                
+                {regularOrders.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic py-4">Brak pozycji w zamówieniu.</p>
                 ) : (
-                  restaurantSummaryList.map((item, index) => (
-                    <tr key={index} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-2.5 px-4 font-bold text-center text-amber-400 text-sm">
-                        {item.quantity}x
-                      </td>
-
-                      <td className="py-2.5 px-4 font-mono font-bold text-red-400 whitespace-nowrap">
-                        #{item.code}
-                      </td>
-
-                      <td className="py-2.5 px-4 font-semibold text-slate-200">
-                        {item.name}
-                      </td>
-
-                      {session.allowNotes && (
-                        <td className="py-2.5 px-4 text-slate-400 italic">
-                          {item.note || '-'}
-                        </td>
-                      )}
-
-                      <td className="py-2.5 px-4 font-bold text-emerald-400 text-right whitespace-nowrap">
-                        {item.totalPrice.toFixed(2)} zł
-                      </td>
-                    </tr>
-                  ))
+                  <div className="space-y-2">
+                    {regularOrders.map((ord, idx) => (
+                      <div key={ord.id} className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-slate-500 font-bold w-6">{idx + 1}.</span>
+                          <div>
+                            <span className="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
+                            <span className="font-semibold text-slate-200">{ord.itemName}</span>
+                            {ord.isDoublePack && <span className="text-purple-400 text-[10px] ml-2">(2 porcje w 1 opakowaniu)</span>}
+                            <span className="text-slate-400 ml-2">x{ord.quantity}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-400 italic">Zamawiający: <strong className="text-slate-200">{ord.userName}</strong></span>
+                          
+                          {/* Opcja oznaczenia jako domawiane lub kasowania (własne lub admin) */}
+                          {(isAdmin || ord.userId === userId) && (
+                            <div className="flex items-center gap-1 border-l border-slate-800 pl-2">
+                              <button 
+                                onClick={() => toggleExtraItem(ord.id, ord.isExtra)}
+                                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded"
+                                title="Przenieś do sekcji domawianych"
+                              >
+                                Przenieś do domawianych
+                              </button>
+                              <button 
+                                onClick={() => deleteDoc(doc(db, "orders", ord.id))}
+                                className="text-rose-400 hover:text-rose-300 p-1"
+                                title="Usuń pozycję"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </tbody>
-              <tfoot>
-                <tr className="bg-slate-950/90 font-bold border-t-2 border-slate-700 text-sm">
-                  <td colSpan={session.allowNotes ? 4 : 3} className="py-3 px-4 text-right text-slate-300">
-                    ŁĄCZNA KWOTA DLA BAR MAI MAI:
-                  </td>
-                  <td className="py-3 px-4 text-right text-amber-400 text-base">
-                    {grandTotal.toFixed(2)} zł
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </section>
+              </div>
 
+              {/* SEKCJA POSIŁKÓW DOMAWIANYCH */}
+              <div className="space-y-3 mt-8">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 pb-2 flex items-center justify-between">
+                  <span>Posiłki domawiane pod oryginalną listą (z dopiskiem)</span>
+                  <span className="text-slate-400 text-[10px] font-normal">Zabezpieczenie przed pomyłką w lokalu</span>
+                </h4>
+                
+                {extraOrders.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic py-2">Brak posiłków domawianych.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {extraOrders.map((ord, idx) => (
+                      <div key={ord.id} className="bg-amber-950/20 border border-amber-800/40 p-3 rounded-xl flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-amber-500 font-bold w-6">{idx + 1}.</span>
+                          <div>
+                            <span className="bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
+                            <span className="font-semibold text-slate-200">{ord.itemName}</span>
+                            <span className="text-slate-400 ml-2">x{ord.quantity}</span>
+                            <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-1.5 py-0.5 rounded ml-2">DOMÓWIENIE</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-400 italic">Zamawiający: <strong className="text-slate-200">{ord.userName}</strong></span>
+                          {(isAdmin || ord.userId === userId) && (
+                            <div className="flex items-center gap-1 border-l border-slate-800 pl-2">
+                              <button 
+                                onClick={() => toggleExtraItem(ord.id, ord.isExtra)}
+                                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded"
+                              >
+                                Na główną
+                              </button>
+                              <button 
+                                onClick={() => deleteDoc(doc(db, "orders", ord.id))}
+                                className="text-rose-400 hover:text-rose-300 p-1"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* ROZLICZENIE FINANSOWE DLA GRUPY */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <h3 className="text-lg font-bold mb-4 text-amber-400 flex items-center gap-2">
+                <TrendingUp size={20} /> Rozliczenie kosztów (dla grupy)
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {activeUsers.map(uName => {
+                  const userOrders = orders.filter(o => o.userName === uName);
+                  const foodSum = userOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+                  const userTotal = foodSum + packagingFee;
+
+                  return (
+                    <div key={uName} className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl">
+                      <h4 className="font-bold text-slate-200 text-sm mb-2 pb-2 border-b border-slate-800 flex items-center justify-between">
+                        <span>{uName}</span>
+                        <span className="text-amber-400 text-xs">{userTotal.toFixed(2)} zł</span>
+                      </h4>
+                      <ul className="space-y-1 text-xs text-slate-400 mb-3">
+                        {userOrders.map(uo => (
+                          <li key={uo.id} className="flex justify-between">
+                            <span className="truncate pr-2">#{uo.itemNum} {uo.itemName} x{uo.quantity}</span>
+                            <span className="shrink0">{uo.price * uo.quantity} zł</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="text-[10px] text-slate-500 pt-2 border-t border-slate-800 flex justify-between">
+                        <span>Opakowanie: {packagingFee} zł</span>
+                        <span className="font-bold text-slate-300">Razem: {userTotal.toFixed(2)} zł</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ZAKŁADKA STATYSTYK (MIEJSCE NA DANE Z EXCELA) */}
+        {activeTab === 'stats' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4">
+              <div className="inline-flex p-4 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/20 mb-2">
+                <Award size={36} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-100">Hall of Fame - Bar Mai Mai</h3>
+              <p className="text-sm text-slate-400 max-w-lg mx-auto">
+                Tutaj wkrótce pojawią się historyczne statystyki z Twojego Excela (łącznie wydana kasa, najpopularniejsze danie, król zamawiania). 
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-left">
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                  <span className="text-xs text-slate-500 uppercase font-semibold">Łącznie wydano w lokalu</span>
+                  <div className="text-2xl font-bold text-amber-400 mt-1">Wkrótce...</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                  <span className="text-xs text-slate-500 uppercase font-semibold">Najpopularniejsze danie</span>
+                  <div className="text-xl font-bold text-slate-200 mt-1">Wkrótce...</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                  <span className="text-xs text-slate-500 uppercase font-semibold">Najczęstszy zamawiający</span>
+                  <div className="text-xl font-bold text-slate-200 mt-1">Wkrótce...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* MODAL LOGOWANIA ADMINA (PIN) */}
+      {isAdminModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 text-amber-400">
+              <Lock size={24} />
+              <h3 className="text-lg font-bold text-slate-100">Podaj PIN Administratora</h3>
+            </div>
+            <p className="text-xs text-slate-400">Ta akcja wymaga uprawnień administratora. Domyślny PIN to: <strong className="text-amber-400">1234</strong></p>
+            
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <input 
+                type="password" 
+                value={adminPinInput} 
+                onChange={(e) => setAdminPinInput(e.target.value)} 
+                placeholder="Wpisz PIN" 
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 tracking-widest text-center text-lg focus:outline-none focus:border-amber-500"
+                autoFocus
+                required
+              />
+              <div className="flex gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsAdminModalOpen(false)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
+                >
+                  Anuluj
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs shadow-lg"
+                >
+                  Zaloguj
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
