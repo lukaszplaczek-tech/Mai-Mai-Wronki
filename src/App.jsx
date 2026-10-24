@@ -23,11 +23,11 @@ import {
   FileText, 
   TrendingUp, 
   Award,
-  PlusCircle
+  ShoppingCart
 } from 'lucide-react';
 
 // ==========================================
-// KONFIGURACJA FIREBASE (Twoja baza)
+// KONFIGURACJA FIREBASE
 // ==========================================
 const firebaseConfig = typeof __firebase_config !== 'undefined'
   ? JSON.parse(__firebase_config)
@@ -47,7 +47,7 @@ const db = getFirestore(app);
 const ADMIN_PIN = "1234";
 
 // ==========================================
-// KATEGORIE I PEŁNE MENU Z ZDJĘĆ
+// KATEGORIE I PEŁNE MENU
 // ==========================================
 const MENU_CATEGORIES = [
   { id: 'zupy', name: 'Zupy' },
@@ -77,7 +77,8 @@ const MENU_ITEMS = [
   { id: '110', cat: 'zupy', num: '110', name: 'Zupa pho z kurczakiem', price: 25 },
   { id: '111', cat: 'zupy', num: '111', name: 'Zupa pho z wołowiną', price: 28 },
 
-  // --- PRZEKĄSKI ---
+  // --- PRZEKĄSKI (w tym podwójne sajgonki) ---
+  { id: '71', cat: 'przekaski', num: '209', name: 'NEM sajgonki - podwójna porcja w jednym opakowaniu (6 szt.)', price: 30, isDoublePack: true },
   { id: '207', cat: 'przekaski', num: '207', name: 'Nem - sajgonki z krewetkami (5 szt.)', price: 18 },
   { id: '208', cat: 'przekaski', num: '208', name: 'Nem - sajgonki wegetariańskie (8 szt.)', price: 16 },
   { id: '209', cat: 'przekaski', num: '209', name: 'Nem - sajgonki (3 szt.)', price: 15 },
@@ -108,10 +109,6 @@ const MENU_ITEMS = [
   { id: '331', cat: 'drob', num: '331', name: 'Kurczak luc lac na gorącym płomieniu', price: 29 },
 
   // --- WIEPRZOWINA ---
-  { id: '426', cat: 'wieprzowina', num: '426', name: 'Kaczka po chińsku na gorącym płomieniu', price: 35 },
-  { id: '427', cat: 'wieprzowina', num: '427', name: 'Kaczka w sosie curry', price: 35 },
-  { id: '428', cat: 'wieprzowina', num: '428', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
-  { id: '431', cat: 'wieprzowina', num: '431', name: 'Kaczka shanghai na gorącym płomieniu', price: 35 },
   { id: '530', cat: 'wieprzowina', num: '530', name: 'Wieprzowina po wietnamsku', price: 29 },
   { id: '531', cat: 'wieprzowina', num: '531', name: 'Wieprzowina z warzywami', price: 26 },
   { id: '532', cat: 'wieprzowina', num: '532', name: 'Wieprzowina na ostro', price: 26 },
@@ -131,9 +128,11 @@ const MENU_ITEMS = [
   { id: '651', cat: 'wolowina', num: '651', name: 'Wołowina z czarnym pieprzem', price: 37 },
   { id: '652', cat: 'wolowina', num: '652', name: 'Wołowina w sosie curry czerwonym', price: 33 },
 
-  // --- KACZKA (Wydzielona lub w odpowiedniej kategorii) ---
-  { id: '40_k', cat: 'kaczka', num: '40', name: 'Kaczka chrupiąca z warzywami', price: 35 },
-  { id: '41_k', cat: 'kaczka', num: '41', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
+  // --- KACZKA ---
+  { id: '426', cat: 'kaczka', num: '426', name: 'Kaczka po chińsku na gorącym płomieniu', price: 35 },
+  { id: '427', cat: 'kaczka', num: '427', name: 'Kaczka w sosie curry', price: 35 },
+  { id: '428', cat: 'kaczka', num: '428', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
+  { id: '431', cat: 'kaczka', num: '431', name: 'Kaczka shanghai na gorącym płomieniu', price: 35 },
 
   // --- RYBY I OWOCE MORZA ---
   { id: '855', cat: 'ryby', num: '855', name: 'Ryba po chińsku na gorącym płomieniu', price: 30 },
@@ -176,7 +175,6 @@ const MENU_ITEMS = [
   { id: '1183', cat: 'dodatki', num: '1183', name: 'Ryż biały', price: 4 },
   { id: '1186', cat: 'dodatki', num: '1186', name: 'Ryż smażony', price: 6 },
   { id: '1187', cat: 'dodatki', num: '1187', name: 'Makaron sojowy', price: 6 },
-  { id: '71', cat: 'dodatki', num: '71', name: 'Sajgonki wieprzowe - PODWÓJNA PORCJA (6 szt. w 1 opakowaniu)', price: 36, isDoublePack: true },
 
   // --- NAPOJE I DESERY ---
   { id: '1410', cat: 'napoje', num: '1410', name: 'Pepsi / Miranda / 7up (500 ml)', price: 8 },
@@ -193,6 +191,7 @@ export default function App() {
   
   const [session, setSession] = useState({
     isOpen: true,
+    isExtraSession: false,
     deliveryDate: '',
     deliveryTime: '12:00'
   });
@@ -226,7 +225,7 @@ export default function App() {
       if (docSnap.exists()) {
         setSession(docSnap.data());
       } else {
-        const defaultSession = { isOpen: true, deliveryDate: dateStr, deliveryTime: '12:00' };
+        const defaultSession = { isOpen: true, isExtraSession: false, deliveryDate: dateStr, deliveryTime: '12:00' };
         setDoc(doc(db, "config", "session"), defaultSession);
         setSession(defaultSession);
       }
@@ -250,12 +249,14 @@ export default function App() {
     setIsLoggedIn(true);
   };
 
-  const handleAddItem = async (menuItem, isExtra = false) => {
+  // Dodawanie zamówienia - automatycznie jako domówienie jeśli włączona jest sesja domawiania przez admina
+  const handleAddItem = async (menuItem) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta! Nie można dodawać zamówień.");
       return;
     }
 
+    const isExtra = session.isExtraSession || false;
     const existingOrder = orders.find(o => o.userId === userId && o.menuItemId === menuItem.id && o.isExtra === isExtra);
 
     if (existingOrder) {
@@ -322,6 +323,16 @@ export default function App() {
     });
   };
 
+  const toggleExtraSessionStatus = async () => {
+    if (!isAdmin) {
+      setIsAdminModalOpen(true);
+      return;
+    }
+    await updateDoc(doc(db, "config", "session"), {
+      isExtraSession: !session.isExtraSession
+    });
+  };
+
   const handleUpdateSessionMeta = async (field, value) => {
     if (!isAdmin) {
       setIsAdminModalOpen(true);
@@ -349,6 +360,8 @@ export default function App() {
 
   const regularOrders = orders.filter(o => !o.isExtra);
   const extraOrders = orders.filter(o => o.isExtra);
+  const myOrders = orders.filter(o => o.userId === userId);
+  const myTotalCost = myOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0) + (myOrders.length > 0 ? packagingFee : 0);
 
   const generateMmsText = () => {
     let text = `BAR MAI MAI - ZAMÓWIENIE\n`;
@@ -424,6 +437,11 @@ export default function App() {
                 <span className={`text-xs px-2 py-0.5 rounded-full ${session.isOpen ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
                   {session.isOpen ? 'Sesja Otwarta' : 'Sesja Zamknięta'}
                 </span>
+                {session.isExtraSession && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                    Sesja Domówień (2. tura)
+                  </span>
+                )}
               </h1>
               <div className="text-xs text-slate-400 flex items-center gap-3 mt-0.5">
                 <span className="flex items-center gap-1"><Calendar size={12}/> {session.deliveryDate}</span>
@@ -497,7 +515,14 @@ export default function App() {
                 onClick={toggleSessionStatus}
                 className={`px-3 py-1.5 rounded-lg font-medium transition-all ${session.isOpen ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
               >
-                {session.isOpen ? 'Zamknij sesję zamówień'  : 'Otwórz sesję zamówień'}
+                {session.isOpen ? 'Zamknij sesję główną'  : 'Otwórz sesję główną'}
+              </button>
+
+              <button 
+                onClick={toggleExtraSessionStatus}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all ${session.isExtraSession ? 'bg-amber-600 hover:bg-amber-700 text-slate-950 font-bold' : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40'}`}
+              >
+                {session.isExtraSession ? '🔴 Wyłącz sesję domówień' : '🟢 Otwórz sesję domówień (2. tura)'}
               </button>
 
               <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
@@ -530,121 +555,130 @@ export default function App() {
       {/* GŁÓWNY WIDOK */}
       <main className="max-w-7xl mx-auto px-4 mt-6">
         {activeTab === 'order' && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="space-y-6">
             
-            {/* KATEGORIE PO LEWEJ STRONIE */}
-            <div className="lg:col-span-1 space-y-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1 mb-3">Kategorie menu</h3>
-              <div className="flex flex-col gap-1.5">
-                {MENU_CATEGORIES.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${activeCategory === cat.id ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/10' : 'bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300'}`}
-                  >
-                    <span>{cat.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${activeCategory === cat.id ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
-                      {MENU_ITEMS.filter(i => i.cat === cat.id).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {/* MOJE KOSZYKI WIDŻET */}
-              <div className="mt-8 bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                  <Utensils size={14} className="text-amber-400" /> Twoje dania w sesji
-                </h4>
-                {orders.filter(o => o.userId === userId).length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">Brak pozycji w koszyku.</p>
-                ) : (
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {orders.filter(o => o.userId === userId).map(item => (
-                      <div key={item.id} className="bg-slate-950/50 border border-slate-800/80 p-2.5 rounded-xl flex items-center justify-between text-xs">
-                        <div className="truncate pr-2">
-                          <span className="font-semibold text-amber-400 mr-1">#{item.itemNum}</span>
-                          <span className="text-slate-200">{item.itemName}</span>
-                          {item.isExtra && <span className="bg-amber-500/20 text-amber-300 text-[9px] px-1 rounded ml-1 font-bold">DOMÓWIENIE</span>}
-                          <div className="text-[10px] text-slate-400">{item.price} zł x {item.quantity} = {item.price * item.quantity} zł</div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button 
-                            onClick={() => handleUpdateQty(item.id, item.quantity, -1)}
-                            className="w-6 h-6 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300"
-                            disabled={!session.isOpen}
-                          >
-                            <Minus size={12} />
-                          </button>
-                          <span className="w-5 text-center font-bold text-slate-200">{item.quantity}</span>
-                          <button 
-                            onClick={() => handleUpdateQty(item.id, item.quantity, 1)}
-                            className="w-6 h-6 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300"
-                            disabled={!session.isOpen}
-                          >
-                            <Plus size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* LISTA DAŃ Z MENU */}
-            <div className="lg:col-span-3 space-y-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                <h3 className="text-lg font-bold mb-4 capitalize text-amber-400">
-                  {MENU_CATEGORIES.find(c => c.id === activeCategory)?.name}
+            {/* DUŻE PODSUMOWANIE ZAMÓWIENIA UŻYTKOWNIKA NA GÓRZE NAD MENU */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-3 mb-4">
+                <h3 className="text-base font-bold text-amber-400 flex items-center gap-2">
+                  <ShoppingCart size={20} /> Twoje zamówienie w tej sesji ({userName})
                 </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {MENU_ITEMS.filter(item => item.cat === activeCategory).map(item => {
-                    return (
-                      <div key={item.id} className="bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 p-4 rounded-2xl flex flex-col justify-between transition-all">
-                        <div>
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold px-2 py-0.5 rounded-lg">
-                              Poz. {item.num}
-                            </span>
-                            <span className="text-base font-bold text-slate-100">
-                              {item.price} zł
-                            </span>
-                          </div>
-                          <h4 className="font-semibold text-slate-200 text-sm mt-1">{item.name}</h4>
-                          {item.isDoublePack && (
-                            <span className="inline-block bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] px-2 py-0.5 rounded mt-1">
-                              Specjalne: 2 porcje w 1 opakowaniu (+1,50 zł)
-                            </span>
-                          )}
-                        </div>
-
-                        {/* DWUTRYBOWY PRZYCISK DODAWANIA (ZWYKŁE VS DOMÓWIENIE) */}
-                        <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => handleAddItem(item, false)}
-                            className={`px-3 py-1.5 rounded-xl flex items-center gap-1 text-xs font-bold transition-all ${session.isOpen ? 'bg-amber-500 hover:bg-amber-600 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
-                            disabled={!session.isOpen}
-                          >
-                            <Plus size={14} /> Dodaj
-                          </button>
-                          
-                          <button 
-                            onClick={() => handleAddItem(item, true)}
-                            className={`px-3 py-1.5 rounded-xl flex items-center gap-1 text-xs font-bold transition-all ${session.isOpen ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
-                            disabled={!session.isOpen}
-                            title="Dodaj jako poranne domówienie"
-                          >
-                            <PlusCircle size={14} /> + Domówienie
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="text-sm font-bold text-slate-200 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                  Do zapłaty: <span className="text-amber-400">{myTotalCost.toFixed(2)} zł</span> (w tym opakowanie {myOrders.length > 0 ? packagingFee.toFixed(2) : '0.00'} zł)
                 </div>
               </div>
+
+              {myOrders.length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-2">Nie masz jeszcze żadnych dań w koszyku. Wybierz coś z menu poniżej!</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {myOrders.map(item => (
+                    <div key={item.id} className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
+                      <div className="truncate pr-2">
+                        <span className="font-semibold text-amber-400 mr-1.5">#{item.itemNum}</span>
+                        <span className="text-slate-200 font-medium">{item.itemName}</span>
+                        {item.isExtra && <span className="bg-amber-500/20 text-amber-300 text-[9px] px-1.5 py-0.5 rounded ml-1 font-bold">DOMÓWIENIE</span>}
+                        <div className="text-[11px] text-slate-400 mt-0.5">{item.price} zł x {item.quantity} = <strong className="text-slate-200">{item.price * item.quantity} zł</strong></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button 
+                          onClick={() => handleUpdateQty(item.id, item.quantity, -1)}
+                          className="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300 transition-all"
+                          disabled={!session.isOpen}
+                          title="Zmniejsz ilość"
+                        >
+                          <Minus size={13} />
+                        </button>
+                        <span className="w-6 text-center font-bold text-slate-100 text-sm">{item.quantity}</span>
+                        <button 
+                          onClick={() => handleUpdateQty(item.id, item.quantity, 1)}
+                          className="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center text-slate-300 transition-all"
+                          disabled={!session.isOpen}
+                          title="Zwiększ ilość"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
+            {/* UKŁAD MENU I KATEGORII */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              
+              {/* KATEGORIE PO LEWEJ STRONIE */}
+              <div className="lg:col-span-1 space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1 mb-3">Kategorie menu</h3>
+                <div className="flex flex-col gap-1.5">
+                  {MENU_CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setActiveCategory(cat.id)}
+                      className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${activeCategory === cat.id ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/10' : 'bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300'}`}
+                    >
+                      <span>{cat.name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${activeCategory === cat.id ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                        {MENU_ITEMS.filter(i => i.cat === cat.id).length}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* LISTA DAŃ Z MENU */}
+              <div className="lg:col-span-3 space-y-4">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold capitalize text-amber-400">
+                      {MENU_CATEGORIES.find(c => c.id === activeCategory)?.name}
+                    </h3>
+                    {session.isExtraSession && (
+                      <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-xl font-bold">
+                        ⚠️ Tryb Domówień aktywny (wszystkie dodania trafią do domówień)
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {MENU_ITEMS.filter(item => item.cat === activeCategory).map(item => {
+                      return (
+                        <div key={item.id} className="bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 p-4 rounded-2xl flex flex-col justify-between transition-all">
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold px-2 py-0.5 rounded-lg">
+                                Poz. {item.num}
+                              </span>
+                              <span className="text-base font-bold text-slate-100">
+                                {item.price} zł
+                              </span>
+                            </div>
+                            <h4 className="font-semibold text-slate-200 text-sm mt-1">{item.name}</h4>
+                            {item.isDoublePack && (
+                              <span className="inline-block bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] px-2 py-0.5 rounded mt-1">
+                                Specjalne: 2 porcje w 1 opakowaniu (+1,50 zł)
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-end">
+                            <button 
+                              onClick={() => handleAddItem(item)}
+                              className={`px-4 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all shadow-md ${session.isOpen ? 'bg-amber-500 hover:bg-amber-600 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
+                              disabled={!session.isOpen}
+                            >
+                              <Plus size={14} /> {session.isExtraSession ? 'Domów' : 'Dodaj'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
 
