@@ -44,7 +44,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const ADMIN_PIN = "4271";
+const ADMIN_PIN = "1234";
 
 // ==========================================
 // KATEGORIE I PEŁNE MENU
@@ -197,7 +197,7 @@ export default function App() {
   });
   const [orders, setOrders] = useState([]);
   const [activeCategory, setActiveCategory] = useState('zupy');
-  const [meatSelections, setMeatSelections] = useState({}); // Wybór mięsa dla dań z mięsem
+  const [meatSelections, setMeatSelections] = useState({});
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
@@ -250,7 +250,6 @@ export default function App() {
     setIsLoggedIn(true);
   };
 
-  // Dodawanie pojedynczej pozycji (każde kliknięcie dodaje osobną pozycję do bazy)
   const handleAddItem = async (menuItem) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta! Nie można dodawać zamówień.");
@@ -274,13 +273,12 @@ export default function App() {
       itemName: finalItemName,
       price: menuItem.price,
       isDoublePack: menuItem.isDoublePack || false,
-      quantity: 1, // zawsze 1 sztuka jako osobna pozycja
+      quantity: 1,
       isExtra: isExtra,
       timestamp: Date.now()
     });
   };
 
-  // Usunięcie konkretnej pozycji z bazy
   const handleDeleteOrder = async (orderId) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta!");
@@ -348,7 +346,11 @@ export default function App() {
   const regularOrders = orders.filter(o => !o.isExtra);
   const extraOrders = orders.filter(o => o.isExtra);
   const myOrders = orders.filter(o => o.userId === userId);
-  const myTotalCost = myOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0) + (myOrders.length > 0 ? packagingFee : 0);
+  
+  // Koszt całkowity użytkownika: suma dań + opakowanie 1.50 zł do KAŻDEJ pozycji
+  const myFoodSum = myOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+  const myPackagingTotal = myOrders.length * packagingFee;
+  const myTotalCost = myFoodSum + myPackagingTotal;
 
   const generateMmsText = () => {
     let text = `BAR MAI MAI - ZAMÓWIENIE\n`;
@@ -551,7 +553,10 @@ export default function App() {
                   <ShoppingCart size={20} /> Twoje zamówienie w tej sesji ({userName})
                 </h3>
                 <div className="text-sm font-bold text-slate-200 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                  Do zapłaty: <span className="text-amber-400">{myTotalCost.toFixed(2)} zł</span> (w tym opakowanie {myOrders.length > 0 ? packagingFee.toFixed(2) : '0.00'} zł)
+                  Do zapłaty: <span className="text-amber-400">{myTotalCost.toFixed(2)} zł</span> 
+                  <span className="text-xs text-slate-400 font-normal ml-2">
+                    (w tym opakowania: {myPackagingTotal.toFixed(2)} zł / {myOrders.length} poz.)
+                  </span>
                 </div>
               </div>
 
@@ -565,7 +570,9 @@ export default function App() {
                         <span className="font-semibold text-amber-400 mr-1.5">#{item.itemNum}</span>
                         <span className="text-slate-200 font-medium">{item.itemName}</span>
                         {item.isExtra && <span className="bg-amber-500/20 text-amber-300 text-[9px] px-1.5 py-0.5 rounded ml-1 font-bold">DOMÓWIENIE</span>}
-                        <div className="text-[11px] text-slate-400 mt-0.5"><strong className="text-slate-200">{item.price} zł</strong></div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          Cena: <strong className="text-slate-200">{item.price} zł</strong> + opakowanie {packagingFee} zł
+                        </div>
                       </div>
                       <button 
                         onClick={() => handleDeleteOrder(item.id)}
@@ -634,249 +641,4 @@ export default function App() {
                             
                             {/* Wybór mięsa dla dań z mięsem */}
                             {item.hasMeatChoice && (
-                              <div className="mt-2 pt-2 border-t border-slate-800/60">
-                                <label className="block text-[11px] text-slate-400 mb-1">Wybierz mięso:</label>
-                                <div className="grid grid-cols-3 gap-1">
-                                  {['kurczak', 'wieprzowina', 'wołowina'].map(meat => {
-                                    const current = meatSelections[item.id] || 'kurczak';
-                                    const isSelected = current === meat;
-                                    return (
-                                      <button
-                                        key={meat}
-                                        type="button"
-                                        onClick={() => setMeatSelections(prev => ({ ...prev, [item.id]: meat }))}
-                                        className={`py-1 px-1 text-[10px] rounded-lg font-medium capitalize transition-all border ${isSelected ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold' : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'}`}
-                                      >
-                                        {meat}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {item.isDoublePack && (
-                              <span className="inline-block bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] px-2 py-0.5 rounded mt-1">
-                                Specjalne: 2 porcje w 1 opakowaniu (+1,50 zł)
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-end">
-                            <button 
-                              onClick={() => handleAddItem(item)}
-                              className={`px-4 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all shadow-md ${session.isOpen ? 'bg-amber-500 hover:bg-amber-600 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
-                              disabled={!session.isOpen}
-                            >
-                              <Plus size={14} /> {session.isExtraSession ? 'Domów' : 'Dodaj'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* ZAKŁADKA PODSUMOWANIA (KAŻDA SZTUKA OSOBNO) */}
-        {activeTab === 'summary' && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <div>
-                  <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
-                    <FileText size={20} /> Podsumowanie dla restauracji
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">Każda sztuka dania w osobnym wierszu. Główna lista i domówienia rozdzielone automatycznie.</p>
-                </div>
-                <button 
-                  onClick={copyToClipboard}
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg"
-                >
-                  <Share2 size={14} /> Skopiuj tekst do MMS / SMS
-                </button>
-              </div>
-
-              {/* LISTA GŁÓWNA */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
-                  Główna lista dań ({regularOrders.length} poz.)
-                </h4>
-                
-                {regularOrders.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic py-4">Brak głównych pozycji.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {regularOrders.map((ord, idx) => (
-                      <div key={ord.id} className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-slate-500 font-bold w-6">{idx + 1}.</span>
-                          <div>
-                            <span className="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
-                            <span className="font-semibold text-slate-200">{ord.itemName}</span>
-                            {ord.isDoublePack && <span className="text-purple-400 text-[10px] ml-2">(2 porcje w 1 opak.)</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-slate-400 italic">[{ord.userName}]</span>
-                          {(isAdmin || ord.userId === userId) && (
-                            <button 
-                              onClick={() => handleDeleteOrder(ord.id)}
-                              className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
-                              title="Usuń pozycję"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* SEKCJA POSIŁKÓW DOMAWIANYCH */}
-              <div className="space-y-3 mt-8">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 pb-2 flex items-center justify-between">
-                  <span>Poranne domówienia pod oryginalną listą ({extraOrders.length} poz.)</span>
-                </h4>
-                
-                {extraOrders.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic py-2">Brak porannych domówień.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {extraOrders.map((ord, idx) => (
-                      <div key={ord.id} className="bg-amber-950/20 border border-amber-800/40 p-3 rounded-xl flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-amber-500 font-bold w-6">{idx + 1}.</span>
-                          <div>
-                            <span className="bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
-                            <span className="font-semibold text-slate-200">{ord.itemName}</span>
-                            <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-1.5 py-0.5 rounded ml-2">DOMÓWIENIE</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-slate-400 italic">[{ord.userName}]</span>
-                          {(isAdmin || ord.userId === userId) && (
-                            <button 
-                              onClick={() => handleDeleteOrder(ord.id)}
-                              className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-            </div>
-
-            {/* ROZLICZENIE FINANSOWE */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <h3 className="text-lg font-bold mb-4 text-amber-400 flex items-center gap-2">
-                <TrendingUp size={20} /> Rozliczenie kosztów (dla grupy)
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {activeUsers.map(uName => {
-                  const userOrders = orders.filter(o => o.userName === uName);
-                  const foodSum = userOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
-                  const userTotal = foodSum + (userOrders.length > 0 ? packagingFee : 0);
-
-                  return (
-                    <div key={uName} className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl">
-                      <h4 className="font-bold text-slate-200 text-sm mb-2 pb-2 border-b border-slate-800 flex items-center justify-between">
-                        <span>{uName}</span>
-                        <span className="text-amber-400 text-xs">{userTotal.toFixed(2)} zł</span>
-                      </h4>
-                      <ul className="space-y-1 text-xs text-slate-400 mb-3">
-                        {userOrders.map(uo => (
-                          <li key={uo.id} className="flex justify-between">
-                            <span className="truncate pr-2">
-                              #{uo.itemNum} {uo.itemName}
-                              {uo.isExtra && <span className="text-amber-400 text-[10px] ml-1">(domówienie)</span>}
-                            </span>
-                            <span className="shrink-0">{uo.price} zł</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="text-[10px] text-slate-500 pt-2 border-t border-slate-800 flex justify-between">
-                        <span>Opakowanie: {userOrders.length > 0 ? packagingFee : 0} zł</span>
-                        <span className="font-bold text-slate-300">Razem: {userTotal.toFixed(2)} zł</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* STATYSTYKI */}
-        {activeTab === 'stats' && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4">
-              <div className="inline-flex p-4 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/20 mb-2">
-                <Award size={36} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-100">Hall of Fame - Bar Mai Mai</h3>
-              <p className="text-sm text-slate-400 max-w-lg mx-auto">
-                Miejsce na dane z Twojego Excela – dodamy je przy kolejnym kroku!
-              </p>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* MODAL ADMINA */}
-      {isAdminModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-amber-400">
-              <Lock size={24} />
-              <h3 className="text-lg font-bold text-slate-100">PIN Administratora</h3>
-            </div>
-            <p className="text-xs text-slate-400">Podaj PIN (domyślnie: <strong className="text-amber-400">1234</strong>):</p>
-            
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <input 
-                type="password" 
-                value={adminPinInput} 
-                onChange={(e) => setAdminPinInput(e.target.value)} 
-                placeholder="PIN" 
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 tracking-widest text-center text-lg focus:outline-none focus:border-amber-500"
-                autoFocus
-                required
-              />
-              <div className="flex gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsAdminModalOpen(false)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
-                >
-                  Anuluj
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs shadow-lg"
-                >
-                  Zaloguj
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
+                              <div
