@@ -24,7 +24,8 @@ import {
   Award,
   ShoppingCart,
   CheckCircle2,
-  KeyRound
+  KeyRound,
+  Image as ImageIcon
 } from 'lucide-react';
 
 // ==========================================
@@ -46,10 +47,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PIN = "1234";
-const APP_VERSION = "v1.3.0";
+const APP_VERSION = "v1.4.0";
 
 // ==========================================
-// KATEGORIE I PEŁNE MENU (W TYM 4 RODZAJE KALMARÓW)
+// KATEGORIE I PEŁNE MENU (4 RODZAJE KALMARÓW)
 // ==========================================
 const MENU_CATEGORIES = [
   { id: 'zupy', name: 'Zupy' },
@@ -79,7 +80,7 @@ const MENU_ITEMS = [
   { id: '110', cat: 'zupy', num: '110', name: 'Zupa pho z kurczakiem', price: 25 },
   { id: '111', cat: 'zupy', num: '111', name: 'Zupa pho z wołowiną', price: 28 },
 
-  // --- PRZEKĄSKI (w tym podwójne sajgonki) ---
+  // --- PRZEKĄSKI ---
   { id: '71', cat: 'przekaski', num: '209', name: 'NEM sajgonki - podwójna porcja w jednym opakowaniu (6 szt.)', price: 30, isDoublePack: true },
   { id: '207', cat: 'przekaski', num: '207', name: 'Nem - sajgonki z krewetkami (5 szt.)', price: 18 },
   { id: '208', cat: 'przekaski', num: '208', name: 'Nem - sajgonki wegetariańskie (8 szt.)', price: 16 },
@@ -136,7 +137,7 @@ const MENU_ITEMS = [
   { id: '428', cat: 'kaczka', num: '428', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
   { id: '431', cat: 'kaczka', num: '431', name: 'Kaczka shanghai na gorącym płomieniu', price: 35 },
 
-  // --- RYBY I OWOCE MORZA (4 RODZAJE KALMARÓW) ---
+  // --- RYBY I OWOCE MORZA (4 KALMANY) ---
   { id: '855', cat: 'ryby', num: '855', name: 'Ryba po chińsku na gorącym płomieniu', price: 30 },
   { id: '857', cat: 'ryby', num: '857', name: 'Ryba w sosie pikantnym', price: 28 },
   { id: '858', cat: 'ryby', num: '858', name: 'Ryba w sosie słodko-kwaśnym', price: 28 },
@@ -155,7 +156,7 @@ const MENU_ITEMS = [
   { id: '873', cat: 'ryby', num: '873', name: 'Kalmary z cytryna na maśle', price: 33 },
   { id: '876', cat: 'ryby', num: '876', name: 'Kalmary w sosie curry', price: 33 },
 
-  // --- RYŻ I MAKARON SMAŻONY (z wyborem mięsa) ---
+  // --- RYŻ I MAKARON SMAŻONY ---
   { id: '1075', cat: 'makaron_ryz', num: '1075', name: 'Makaron chiński', price: 23, hasMeatChoice: true },
   { id: '1076', cat: 'makaron_ryz', num: '1076', name: 'Makaron sojowy', price: 23, hasMeatChoice: true },
   { id: '1077', cat: 'makaron_ryz', num: '1077', name: 'Ryż smażony', price: 23, hasMeatChoice: true },
@@ -199,18 +200,18 @@ export default function App() {
     isExtraSession: false,
     deliveryDate: '',
     deliveryTime: '12:00',
-    userPin: '5678' // Domyślny PIN dla użytkowników, zmienialny przez admina
+    userPin: '5678'
   });
   const [orders, setOrders] = useState([]);
   const [activeCategory, setActiveCategory] = useState('zupy');
   const [meatSelections, setMeatSelections] = useState({});
-  const [orderForName, setOrderForName] = useState(''); // Zamawianie dla innej osoby
+  const [orderForName, setOrderForName] = useState('');
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('order');
-  const [toastMessage, setToastMessage] = useState(null); // Profesjonalna reakcja po dodaniu
+  const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
     const tomorrow = new Date();
@@ -258,7 +259,6 @@ export default function App() {
     setLoginError('');
     if (!userName.trim()) return;
     
-    // Sprawdzenie PIN-u użytkownika
     if (userPinInput !== session.userPin) {
       setLoginError("Nieprawidłowy PIN użytkownika!");
       return;
@@ -282,7 +282,7 @@ export default function App() {
       return;
     }
 
-    const targetUser = orderForName.trim() || userName.trim();
+    const targetUser = isAdmin ? (orderForName.trim() || userName.trim()) : userName.trim();
     const isExtra = session.isExtraSession || false;
     let finalItemName = menuItem.name;
 
@@ -374,10 +374,13 @@ export default function App() {
 
   const packagingFee = 1.50;
   const activeUsers = [...new Set(orders.map(o => o.userName))];
+  // Lista wszystkich znanych imion do wyboru przez admina (własne imię + osoby z zamówień)
+  const allKnownUsers = [userName, ...activeUsers.filter(u => u !== userName)];
 
   const regularOrders = orders.filter(o => !o.isExtra);
   const extraOrders = orders.filter(o => o.isExtra);
-  const myOrders = orders.filter(o => o.userName === (orderForName.trim() || userName));
+  const viewingUser = isAdmin ? (orderForName.trim() || userName) : userName;
+  const myOrders = orders.filter(o => o.userName === viewingUser);
   
   const myFoodSum = myOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
   const myPackagingTotal = myOrders.length * packagingFee;
@@ -403,9 +406,67 @@ export default function App() {
     return text;
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(generateMmsText());
-    showToast("Podsumowanie skopiowane do schowka!");
+  // Generowanie obrazu zamówienia do schowka (idealne do MMS / Messengera)
+  const copyImageToClipboard = async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 650;
+    const totalLines = 5 + regularOrders.length + (extraOrders.length > 0 ? extraOrders.length + 3 : 0);
+    canvas.height = Math.max(400, totalLines * 26 + 60);
+    const ctx = canvas.getContext('2d');
+
+    // Tło
+    ctx.fillStyle = '#020617'; // slate-950
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Nagłówek
+    ctx.fillStyle = '#fbbf24'; // amber-400
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('BAR MAI MAI - ZAMÓWIENIE', 25, 40);
+
+    ctx.fillStyle = '#94a3b8'; // slate-400
+    ctx.font = '14px sans-serif';
+    ctx.fillText(`Dostawa: ${session.deliveryDate} o godz. ${session.deliveryTime}`, 25, 68);
+
+    let y = 105;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('--- GŁÓWNA LISTA ---', 25, y);
+    y += 28;
+
+    ctx.font = '13px sans-serif';
+    regularOrders.forEach((ord, index) => {
+      ctx.fillStyle = '#e2e8f0';
+      const opakowaniaInfo = ord.isDoublePack ? ` (2 porcje w 1 opak.)` : ``;
+      const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}]`;
+      ctx.fillText(line, 25, y);
+      y += 24;
+    });
+
+    if (extraOrders.length > 0) {
+      y += 10;
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText('--- POSIŁKI DOMAWIANE ---', 25, y);
+      y += 28;
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '13px sans-serif';
+      extraOrders.forEach((ord, index) => {
+        const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}]`;
+        ctx.fillText(line, 25, y);
+        y += 24;
+      });
+    }
+
+    canvas.toBlob(async (blob) => {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showToast("Obraz zamówienia skopiowany do schowka! Wklej w MMS 📸");
+      } catch (err) {
+        console.error(err);
+        navigator.clipboard.writeText(generateMmsText());
+        showToast("Skopiowano tekst (przeglądarka nie obsługuje obrazu w schowku).");
+      }
+    });
   };
 
   if (!isLoggedIn) {
@@ -624,26 +685,46 @@ export default function App() {
         {activeTab === 'order' && (
           <div className="space-y-6">
             
-            {/* DUŻE PODSUMOWANIE ZAMÓWIENIA UŻYTKOWNIKA NA GÓRZE */}
+            {/* PODSUMOWANIE ZAMÓWIENIA UŻYTKOWNIKA NA GÓRZE */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-3 mb-4">
+                
+                {/* Wybór imienia (dla admina - widoczny tylko dla niego z rozwijaną listą) */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <h3 className="text-base font-bold text-amber-400 flex items-center gap-2">
-                    <ShoppingCart size={20} /> Zamówienia dla:
+                    <ShoppingCart size={20} /> Zamówienie dla:
                   </h3>
-                  {/* Wybór imienia (dla siebie lub kogoś obok) */}
-                  <input 
-                    type="text" 
-                    value={orderForName}
-                    onChange={(e) => setOrderForName(e.target.value)}
-                    placeholder="Wpisz imię"
-                    className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-amber-300 font-bold focus:outline-none focus:border-amber-500"
-                  />
+                  {isAdmin ? (
+                    <select
+                      value={orderForName}
+                      onChange={(e) => {
+                        if (e.target.value === '__NEW__') {
+                          const newName = prompt("Wpisz imię nowej osoby:");
+                          if (newName && newName.trim()) {
+                            setOrderForName(newName.trim());
+                          }
+                        } else {
+                          setOrderForName(e.target.value);
+                        }
+                      }}
+                      className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-amber-300 font-bold focus:outline-none focus:border-amber-500"
+                    >
+                      {allKnownUsers.map(u => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                      <option value="__NEW__">➕ Dodaj inną osobę...</option>
+                    </select>
+                  ) : (
+                    <span className="text-sm font-bold text-amber-300 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                      {userName}
+                    </span>
+                  )}
                 </div>
+
                 <div className="text-sm font-bold text-slate-200 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
                   Do zapłaty: <span className="text-amber-400">{myTotalCost.toFixed(2)} zł</span> 
                   <span className="text-xs text-slate-400 font-normal ml-2">
-                    (w tym opakowania: {myPackagingTotal.toFixed(2)} zł / {myOrders.length} poz.)
+                    (opakowania: {myPackagingTotal.toFixed(2)} zł / {myOrders.length} poz.)
                   </span>
                 </div>
               </div>
@@ -676,14 +757,14 @@ export default function App() {
               )}
             </div>
 
-            {/* POZIOMY, PŁYNNIE PRZEWIJANY PASEK KATEGORII (MOBILNY / DESKTOP) */}
+            {/* WIELOLINIOWY (ZAWIJANY) UKŁAD KATEGORII */}
             <div className="sticky top-[65px] bg-slate-950/95 backdrop-blur-md py-3 z-20 border-b border-slate-800/60">
-              <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none items-center">
+              <div className="flex flex-wrap gap-2 items-center">
                 {MENU_CATEGORIES.map(cat => (
                   <button
                     key={cat.id}
                     onClick={() => setActiveCategory(cat.id)}
-                    className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${activeCategory === cat.id ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' : 'bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300'}`}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${activeCategory === cat.id ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' : 'bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300'}`}
                   >
                     <span>{cat.name}</span>
                     <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeCategory === cat.id ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
@@ -784,12 +865,23 @@ export default function App() {
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">Każda sztuka dania w osobnym wierszu. Główna lista i domówienia rozdzielone automatycznie.</p>
                 </div>
-                <button 
-                  onClick={copyToClipboard}
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg"
-                >
-                  <Share2 size={14} /> Skopiuj tekst do MMS / SMS
-                </button>
+                <div className="flex gap-2 flex-wrap">
+                  <button 
+                    onClick={copyImageToClipboard}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg"
+                  >
+                    <ImageIcon size={14} /> Skopiuj obraz do MMS
+                  </button>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(generateMmsText());
+                      showToast("Tekst skopiowany do schowka!");
+                    }}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all"
+                  >
+                    <Share2 size={14} /> Kopiuj tekst
+                  </button>
+                </div>
               </div>
 
               {/* LISTA GŁÓWNA */}
@@ -936,38 +1028,4 @@ export default function App() {
               <Lock size={24} />
               <h3 className="text-lg font-bold text-slate-100">PIN Administratora</h3>
             </div>
-            <p className="text-xs text-slate-400">Podaj PIN administracyjny:</p>
-            
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <input 
-                type="password" 
-                value={adminPinInput} 
-                onChange={(e) => setAdminPinInput(e.target.value)} 
-                placeholder="PIN" 
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 tracking-widest text-center text-lg focus:outline-none focus:border-amber-500"
-                autoFocus
-                required
-              />
-              <div className="flex gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsAdminModalOpen(false)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
-                >
-                  Anuluj
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs shadow-lg"
-                >
-                  Zaloguj
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
+            <p className="text-xs text-slate-400
