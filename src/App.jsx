@@ -1028,4 +1028,38 @@ export default function App() {
               <Lock size={24} />
               <h3 className="text-lg font-bold text-slate-100">PIN Administratora</h3>
             </div>
-            <p className="text-xs text-slate-400
+            <p className="text-xs text-slate-400">Podaj PIN administracyjny:</p>
+            
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <input 
+                type="password" 
+                value={adminPinInput} 
+                onChange={(e) => setAdminPinInput(e.target.value)} 
+                placeholder="PIN" 
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 tracking-widest text-center text-lg focus:outline-none focus:border-amber-500"
+                autoFocus
+                required
+              />
+              <div className="flex gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsAdminModalOpen(false)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
+                >
+                  Anuluj
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs shadow-lg"
+                >
+                  Zaloguj
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
