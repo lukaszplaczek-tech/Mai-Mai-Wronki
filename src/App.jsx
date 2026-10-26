@@ -47,7 +47,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PIN = "1234";
-const APP_VERSION = "v1.4.0";
+const APP_VERSION = "v1.5.0";
 
 // ==========================================
 // KATEGORIE I PEŁNE MENU (4 RODZAJE KALMARÓW)
@@ -137,7 +137,7 @@ const MENU_ITEMS = [
   { id: '428', cat: 'kaczka', num: '428', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
   { id: '431', cat: 'kaczka', num: '431', name: 'Kaczka shanghai na gorącym płomieniu', price: 35 },
 
-  // --- RYBY I OWOCE MORZA (4 KALMANY) ---
+  // --- RYBY I OWOCE MORZA ---
   { id: '855', cat: 'ryby', num: '855', name: 'Ryba po chińsku na gorącym płomieniu', price: 30 },
   { id: '857', cat: 'ryby', num: '857', name: 'Ryba w sosie pikantnym', price: 28 },
   { id: '858', cat: 'ryby', num: '858', name: 'Ryba w sosie słodko-kwaśnym', price: 28 },
@@ -374,7 +374,6 @@ export default function App() {
 
   const packagingFee = 1.50;
   const activeUsers = [...new Set(orders.map(o => o.userName))];
-  // Lista wszystkich znanych imion do wyboru przez admina (własne imię + osoby z zamówień)
   const allKnownUsers = [userName, ...activeUsers.filter(u => u !== userName)];
 
   const regularOrders = orders.filter(o => !o.isExtra);
@@ -386,32 +385,42 @@ export default function App() {
   const myPackagingTotal = myOrders.length * packagingFee;
   const myTotalCost = myFoodSum + myPackagingTotal;
 
+  // Obliczenia sumaryczne dla podsumowania MMS/SMS
+  const totalFoodAmount = orders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+  const totalPackagingAmount = orders.length * packagingFee;
+  const grandTotalAmount = totalFoodAmount + totalPackagingAmount;
+
   const generateMmsText = () => {
     let text = `BAR MAI MAI - ZAMÓWIENIE\n`;
-    text += `Dostawa: ${session.deliveryDate} o godz. ${session.deliveryTime}\n\n`;
+    text += `Data Odbioru: ${session.deliveryDate} o godz. ${session.deliveryTime}\n\n`;
     
-    text += `--- GŁÓWNA LISTA ---\n`;
+    text += `--- DANIA ---\n`;
     regularOrders.forEach((ord, index) => {
       const opakowaniaInfo = ord.isDoublePack ? ` (2 porcje w 1 opak.)` : ``;
-      text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}]\n`;
+      text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}] - ${ord.price} zł\n`;
     });
 
     if (extraOrders.length > 0) {
-      text += `\n--- POSIŁKI DOMAWIANE (PROSZĘ NIE MYLIĆ) ---\n`;
+      text += `\n--- DANIA DOMÓWIONE ---\n`;
       extraOrders.forEach((ord, index) => {
-        text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}]\n`;
+        text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}] - ${ord.price} zł\n`;
       });
     }
+
+    text += `\n------------------------\n`;
+    text += `Suma za dania: ${totalFoodAmount.toFixed(2)} zł\n`;
+    text += `Suma za opakowania: ${totalPackagingAmount.toFixed(2)} zł (${orders.length} poz.)\n`;
+    text += `RAZEM DO ZAPŁATY: ${grandTotalAmount.toFixed(2)} zł\n`;
 
     return text;
   };
 
-  // Generowanie obrazu zamówienia do schowka (idealne do MMS / Messengera)
+  // Generowanie obrazu zamówienia ze szczegółowymi sumami do schowka
   const copyImageToClipboard = async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 650;
-    const totalLines = 5 + regularOrders.length + (extraOrders.length > 0 ? extraOrders.length + 3 : 0);
-    canvas.height = Math.max(400, totalLines * 26 + 60);
+    const totalLines = 8 + regularOrders.length + (extraOrders.length > 0 ? extraOrders.length + 3 : 0);
+    canvas.height = Math.max(450, totalLines * 26 + 80);
     const ctx = canvas.getContext('2d');
 
     // Tło
@@ -425,19 +434,19 @@ export default function App() {
 
     ctx.fillStyle = '#94a3b8'; // slate-400
     ctx.font = '14px sans-serif';
-    ctx.fillText(`Dostawa: ${session.deliveryDate} o godz. ${session.deliveryTime}`, 25, 68);
+    ctx.fillText(`Data Odbioru: ${session.deliveryDate} o godz. ${session.deliveryTime}`, 25, 68);
 
     let y = 105;
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px sans-serif';
-    ctx.fillText('--- GŁÓWNA LISTA ---', 25, y);
+    ctx.fillText('--- DANIA ---', 25, y);
     y += 28;
 
     ctx.font = '13px sans-serif';
     regularOrders.forEach((ord, index) => {
       ctx.fillStyle = '#e2e8f0';
       const opakowaniaInfo = ord.isDoublePack ? ` (2 porcje w 1 opak.)` : ``;
-      const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}]`;
+      const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}] - ${ord.price} zł`;
       ctx.fillText(line, 25, y);
       y += 24;
     });
@@ -446,25 +455,46 @@ export default function App() {
       y += 10;
       ctx.fillStyle = '#fbbf24';
       ctx.font = 'bold 14px sans-serif';
-      ctx.fillText('--- POSIŁKI DOMAWIANE ---', 25, y);
+      ctx.fillText('--- DANIA DOMÓWIONE ---', 25, y);
       y += 28;
       ctx.fillStyle = '#e2e8f0';
       ctx.font = '13px sans-serif';
       extraOrders.forEach((ord, index) => {
-        const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}]`;
+        const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}] - ${ord.price} zł`;
         ctx.fillText(line, 25, y);
         y += 24;
       });
     }
 
+    // Podsumowanie kwotowe na obrazie
+    y += 15;
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(25, y);
+    ctx.lineTo(625, y);
+    ctx.stroke();
+    y += 25;
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '13px sans-serif';
+    ctx.fillText(`Suma za dania: ${totalFoodAmount.toFixed(2)} zł`, 25, y);
+    y += 22;
+    ctx.fillText(`Suma za opakowania (${orders.length} poz. x 1.50 zł): ${totalPackagingAmount.toFixed(2)} zł`, 25, y);
+    y += 28;
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(`RAZEM DO ZAPŁATY: ${grandTotalAmount.toFixed(2)} zł`, 25, y);
+
     canvas.toBlob(async (blob) => {
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        showToast("Obraz zamówienia skopiowany do schowka! Wklej w MMS 📸");
+        showToast("Obraz zamówienia z kwotami skopiowany do schowka! Wklej w MMS 📸");
       } catch (err) {
         console.error(err);
         navigator.clipboard.writeText(generateMmsText());
-        showToast("Skopiowano tekst (przeglądarka nie obsługuje obrazu w schowku).");
+        showToast("Skopiowano tekst z podsumowaniem kwotowym.");
       }
     });
   };
@@ -562,7 +592,7 @@ export default function App() {
                 )}
               </h1>
               <div className="text-xs text-slate-400 flex items-center gap-3 mt-0.5">
-                <span className="flex items-center gap-1"><Calendar size={12}/> {session.deliveryDate}</span>
+                <span className="flex items-center gap-1"><Calendar size={12}/> Odbiór: {session.deliveryDate}</span>
                 <span className="flex items-center gap-1"><Clock size={12}/> {session.deliveryTime}</span>
               </div>
             </div>
@@ -654,7 +684,7 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
-                <span className="text-slate-400">Dostawa:</span>
+                <span className="text-slate-400">Data Odbioru:</span>
                 <input 
                   type="date" 
                   value={session.deliveryDate} 
@@ -689,7 +719,6 @@ export default function App() {
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-3 mb-4">
                 
-                {/* Wybór imienia (dla admina - widoczny tylko dla niego z rozwijaną listą) */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <h3 className="text-base font-bold text-amber-400 flex items-center gap-2">
                     <ShoppingCart size={20} /> Zamówienie dla:
@@ -757,7 +786,7 @@ export default function App() {
               )}
             </div>
 
-            {/* WIELOLINIOWY (ZAWIJANY) UKŁAD KATEGORII */}
+            {/* WIELOLINIOWY UKŁAD KATEGORII */}
             <div className="sticky top-[65px] bg-slate-950/95 backdrop-blur-md py-3 z-20 border-b border-slate-800/60">
               <div className="flex flex-wrap gap-2 items-center">
                 {MENU_CATEGORIES.map(cat => (
@@ -863,7 +892,7 @@ export default function App() {
                   <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
                     <FileText size={20} /> Podsumowanie dla restauracji
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">Każda sztuka dania w osobnym wierszu. Główna lista i domówienia rozdzielone automatycznie.</p>
+                  <p className="text-xs text-slate-400 mt-1">Każda sztuka dania w osobnym wierszu z uwzględnieniem kwot i sumy końcowej.</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <button 
@@ -875,7 +904,7 @@ export default function App() {
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText(generateMmsText());
-                      showToast("Tekst skopiowany do schowka!");
+                      showToast("Tekst z podsumowaniem i kwotami skopiowany do schowka!");
                     }}
                     className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all"
                   >
@@ -884,14 +913,14 @@ export default function App() {
                 </div>
               </div>
 
-              {/* LISTA GŁÓWNA */}
+              {/* LISTA GŁÓWNA -> ZMIENIONA NA "DANIA" */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
-                  Główna lista dań ({regularOrders.length} poz.)
+                  Dania ({regularOrders.length} poz.)
                 </h4>
                 
                 {regularOrders.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic py-4">Brak głównych pozycji.</p>
+                  <p className="text-xs text-slate-500 italic py-4">Brak pozycji na liście dań.</p>
                 ) : (
                   <div className="space-y-2">
                     {regularOrders.map((ord, idx) => (
@@ -905,6 +934,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
+                          <span className="text-amber-400 font-bold">{ord.price} zł</span>
                           <span className="text-slate-400 italic">[{ord.userName}]</span>
                           {(isAdmin || ord.userId === userId) && (
                             <button 
@@ -922,14 +952,14 @@ export default function App() {
                 )}
               </div>
 
-              {/* SEKCJA POSIŁKÓW DOMAWIANYCH */}
+              {/* SEKCJA POSIŁKÓW DOMAWIANYCH -> ZMIENIONA NA "DANIA DOMÓWIONE" */}
               <div className="space-y-3 mt-8">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 pb-2 flex items-center justify-between">
-                  <span>Poranne domówienia pod oryginalną listą ({extraOrders.length} poz.)</span>
+                  <span>Dania domówione ({extraOrders.length} poz.)</span>
                 </h4>
                 
                 {extraOrders.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic py-2">Brak porannych domówień.</p>
+                  <p className="text-xs text-slate-500 italic py-2">Brak dań domówionych.</p>
                 ) : (
                   <div className="space-y-2">
                     {extraOrders.map((ord, idx) => (
@@ -943,6 +973,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
+                          <span className="text-amber-400 font-bold">{ord.price} zł</span>
                           <span className="text-slate-400 italic">[{ord.userName}]</span>
                           {(isAdmin || ord.userId === userId) && (
                             <button 
@@ -957,6 +988,17 @@ export default function App() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* PODSUMOWANIE KWOTOWE W WIDOKU */}
+              <div className="mt-8 pt-6 border-t border-slate-800 bg-slate-950/60 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+                <div className="space-y-1 text-slate-300">
+                  <div>Suma za dania: <strong className="text-white">{totalFoodAmount.toFixed(2)} zł</strong></div>
+                  <div>Suma za opakowania ({orders.length} poz. x 1.50 zł): <strong className="text-white">{totalPackagingAmount.toFixed(2)} zł</strong></div>
+                </div>
+                <div className="text-base font-bold text-amber-400 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
+                  RAZEM DO ZAPŁATY: {grandTotalAmount.toFixed(2)} zł
+                </div>
               </div>
 
             </div>
