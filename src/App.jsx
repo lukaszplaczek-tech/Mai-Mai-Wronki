@@ -54,7 +54,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PIN = "1234";
-const APP_VERSION = "v1.6.1";
+const APP_VERSION = "v1.6.2";
 
 export default function App() {
   const [userName, setUserName] = useState('');
@@ -194,12 +194,18 @@ export default function App() {
     showToast(`Dodano: #${menuItem.num} ${finalItemName} dla ${targetUser}! ✓`);
   };
 
-  const handleDeleteOrder = async (orderId) => {
+  const handleDeleteOrder = async (orderItem) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta!");
       return;
     }
-    await deleteDoc(doc(db, "orders", orderId));
+    // Zabezpieczenie: usunąć może tylko administrator LUB realny właściciel wpisu (po unikalnym userId)
+    if (!isAdmin && orderItem.userId !== userId) {
+      alert("Możesz usuwać tylko własne pozycje zamówienia!");
+      return;
+    }
+
+    await deleteDoc(doc(db, "orders", orderItem.id));
     showToast("Usunięto pozycję z zamówienia.");
   };
 
@@ -318,7 +324,6 @@ export default function App() {
     return text;
   };
 
-  // Canvas dla podsumowania restauracji
   const createOrderCanvas = () => {
     const canvas = document.createElement('canvas');
     canvas.width = 650;
@@ -413,7 +418,6 @@ export default function App() {
     showToast("Zapisano plik graficzny PNG zamówienia!");
   };
 
-  // Canvas dla rozliczenia grupy
   const createGroupPaymentCanvas = () => {
     const canvas = document.createElement('canvas');
     canvas.width = 650;
@@ -774,7 +778,7 @@ export default function App() {
                         </div>
                       </div>
                       <button 
-                        onClick={() => handleDeleteOrder(item.id)}
+                        onClick={() => handleDeleteOrder(item)}
                         className="w-7 h-7 bg-rose-950/40 hover:bg-rose-900 text-rose-400 rounded-lg flex items-center justify-center transition-all shrink-0 border border-rose-800/40"
                         disabled={!session.isOpen}
                         title="Usuń tę pozycję"
@@ -864,7 +868,7 @@ export default function App() {
                           <span className="text-slate-400 italic">[{ord.userName}]</span>
                           {(isAdmin || ord.userId === userId) && (
                             <button 
-                              onClick={() => handleDeleteOrder(ord.id)}
+                              onClick={() => handleDeleteOrder(ord)}
                               className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
                               title="Usuń pozycję"
                             >
@@ -903,7 +907,7 @@ export default function App() {
                           <span className="text-slate-400 italic">[{ord.userName}]</span>
                           {(isAdmin || ord.userId === userId) && (
                             <button 
-                              onClick={() => handleDeleteOrder(ord.id)}
+                              onClick={() => handleDeleteOrder(ord)}
                               className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
                             >
                               <Trash2 size={14} />
