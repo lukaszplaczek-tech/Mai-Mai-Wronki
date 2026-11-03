@@ -1006,4 +1006,113 @@ export default function App() {
                             <li key={uo.id} className="flex justify-between">
                               <span className="truncate pr-2">
                                 #{uo.itemNum} {uo.itemName}
-                                {uo.isExtra && <span className="text-amber-400 text-[10px] ml-1">(
+                                {uo.isExtra && <span className="text-amber-400 text-[10px] ml-1">(domówienie)</span>}
+                              </span>
+                              <span className="shrink-0">{uo.price} zł</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      <div className="pt-3 border-t border-slate-800 space-y-2">
+                        <div className="text-[10px] text-slate-500 flex justify-between">
+                          <span>Opakowania ({userOrders.length} x {packagingFee} zł): {userPackagingTotal.toFixed(2)} zł</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(userTotal.toFixed(2));
+                              showToast(`Skopiowano kwotę ${userTotal.toFixed(2)} zł dla ${uName}! 📋`);
+                            }}
+                            className="flex-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-all"
+                          >
+                            <Copy size={12} /> Skopiuj {userTotal.toFixed(2)} zł
+                          </button>
+                          {session.adminPhone && (
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(session.adminPhone);
+                                showToast(`Skopiowano Twój nr telefonu: ${session.adminPhone} 📱`);
+                              }}
+                              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-all"
+                              title="Skopiuj swój nr telefonu"
+                            >
+                              <Phone size={12} /> BLIK
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* STATYSTYKI Z ARCHIWUM */}
+        {activeTab === 'stats' && (
+          <HistoryArchive history={history} />
+        )}
+      </main>
+
+      {/* MODALE */}
+      {isAdminModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 text-amber-400">
+              <Lock size={24} />
+              <h3 className="text-lg font-bold text-slate-100">PIN Administratora</h3>
+            </div>
+            <p className="text-xs text-slate-400">Podaj PIN administracyjny:</p>
+            
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <input 
+                type="password" 
+                value={adminPinInput} 
+                onChange={(e) => setAdminPinInput(e.target.value)} 
+                placeholder="PIN" 
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 tracking-widest text-center text-lg focus:outline-none focus:border-amber-500"
+                autoFocus
+                required
+              />
+              <div className="flex gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsAdminModalOpen(false)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
+                >
+                  Anuluj
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs shadow-lg"
+                >
+                  Zaloguj
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <MenuEditorModal 
+        isOpen={isMenuEditorOpen}
+        onClose={() => setIsMenuEditorOn(false)}
+        menuItems={menuItems}
+        categories={MENU_CATEGORIES}
+        onSaveMenu={handleSaveMenuCloud}
+      />
+
+      <PaymentModal 
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        orders={orders}
+        packagingFee={packagingFee}
+        onConfirmArchive={handleConfirmArchive}
+      />
+
+    </div>
+  );
+}
