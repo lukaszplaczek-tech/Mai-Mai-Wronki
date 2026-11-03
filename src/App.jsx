@@ -15,7 +15,6 @@ import {
   Calendar, 
   Lock, 
   Trash2, 
-  Plus, 
   Share2, 
   User, 
   ShieldCheck, 
@@ -25,8 +24,17 @@ import {
   ShoppingCart,
   CheckCircle2,
   KeyRound,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Edit3,
+  DollarSign,
+  Download
 } from 'lucide-react';
+
+import { MENU_CATEGORIES, DEFAULT_MENU_ITEMS } from './data/menu';
+import MenuList from './components/MenuList';
+import MenuEditorModal from './components/MenuEditorModal';
+import PaymentModal from './components/PaymentModal';
+import HistoryArchive from './components/HistoryArchive';
 
 // ==========================================
 // KONFIGURACJA FIREBASE
@@ -47,146 +55,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PIN = "1234";
-const APP_VERSION = "v1.5.0";
-
-// ==========================================
-// KATEGORIE I PEŁNE MENU (4 RODZAJE KALMARÓW)
-// ==========================================
-const MENU_CATEGORIES = [
-  { id: 'zupy', name: 'Zupy' },
-  { id: 'przekaski', name: 'Przekąski (Nem/Sajgonki)' },
-  { id: 'drob', name: 'Dania z Kurczaka' },
-  { id: 'wieprzowina', name: 'Wieprzowina' },
-  { id: 'wolowina', name: 'Wołowina' },
-  { id: 'kaczka', name: 'Kaczka' },
-  { id: 'ryby', name: 'Ryby i Owoce Morza' },
-  { id: 'makaron_ryz', name: 'Ryż i Makaron Smażony' },
-  { id: 'male_dania', name: 'Małe Dania - Box' },
-  { id: 'dodatki', name: 'Dodatki i Inne' },
-  { id: 'napoje', name: 'Napoje i Desery' }
-];
-
-const MENU_ITEMS = [
-  // --- ZUPY ---
-  { id: '101', cat: 'zupy', num: '101', name: 'Zupa wonton', price: 13 },
-  { id: '102', cat: 'zupy', num: '102', name: 'Zupa wietnamska', price: 13 },
-  { id: '103', cat: 'zupy', num: '103', name: 'Zupa krabowa', price: 13 },
-  { id: '104', cat: 'zupy', num: '104', name: 'Zupa pekińska pikantna', price: 13 },
-  { id: '105', cat: 'zupy', num: '105', name: 'Zupa rybna ostra', price: 10 },
-  { id: '106', cat: 'zupy', num: '106', name: 'Zupa z makaronem chińskim', price: 17 },
-  { id: '107', cat: 'zupy', num: '107', name: 'Tajska zupa z kurczakiem', price: 13 },
-  { id: '108', cat: 'zupy', num: '108', name: 'Tajska zupa z krewetkami', price: 15 },
-  { id: '109', cat: 'zupy', num: '109', name: 'Zupa curry z tofu na ostro', price: 13 },
-  { id: '110', cat: 'zupy', num: '110', name: 'Zupa pho z kurczakiem', price: 25 },
-  { id: '111', cat: 'zupy', num: '111', name: 'Zupa pho z wołowiną', price: 28 },
-
-  // --- PRZEKĄSKI ---
-  { id: '71', cat: 'przekaski', num: '209', name: 'NEM sajgonki - podwójna porcja w jednym opakowaniu (6 szt.)', price: 30, isDoublePack: true },
-  { id: '207', cat: 'przekaski', num: '207', name: 'Nem - sajgonki z krewetkami (5 szt.)', price: 18 },
-  { id: '208', cat: 'przekaski', num: '208', name: 'Nem - sajgonki wegetariańskie (8 szt.)', price: 16 },
-  { id: '209', cat: 'przekaski', num: '209', name: 'Nem - sajgonki (3 szt.)', price: 15 },
-  { id: '210', cat: 'przekaski', num: '210', name: 'Paluszki o smaku krabowym surimi (3 szt.)', price: 14 },
-  { id: '211', cat: 'przekaski', num: '211', name: 'Pierogi hacao (5 szt.)', price: 17 },
-  { id: '212', cat: 'przekaski', num: '212', name: 'Pierogi xiao mai (5 szt.)', price: 17 },
-  { id: '213', cat: 'przekaski', num: '213', name: 'Krewetki w cieście chrupiącym (2 szt.)', price: 16 },
-
-  // --- DANIA Z KURCZAKA ---
-  { id: '311', cat: 'drob', num: '311', name: 'Kurczak z brokułami i czosnkiem', price: 27 },
-  { id: '314', cat: 'drob', num: '314', name: 'Kurczak po wietnamsku na gorącym płomieniu', price: 29 },
-  { id: '315', cat: 'drob', num: '315', name: 'Kurczak z warzywami', price: 26 },
-  { id: '316', cat: 'drob', num: '316', name: 'Kurczak w cieście', price: 25 },
-  { id: '317', cat: 'drob', num: '317', name: 'Kurczak gong bao', price: 25 },
-  { id: '318', cat: 'drob', num: '318', name: 'Kurczak z pieczarkami i grzybami mun', price: 26 },
-  { id: '319', cat: 'drob', num: '319', name: 'Kurczak z bambusem', price: 26 },
-  { id: '320', cat: 'drob', num: '320', name: 'Kurczak w sosie curry', price: 25 },
-  { id: '321', cat: 'drob', num: '321', name: 'Kurczak w sosie słodko-kwaśnym', price: 25 },
-  { id: '322', cat: 'drob', num: '322', name: 'Kurczak na ostro', price: 25 },
-  { id: '323', cat: 'drob', num: '323', name: 'Kurczak hong ha na gorącym płomieniu', price: 28 },
-  { id: '324', cat: 'drob', num: '324', name: 'Udko z kurczaka chrupiące (na gorąco)', price: 28 },
-  { id: '325', cat: 'drob', num: '325', name: 'Kurczak w sosie pięciu smaków', price: 25 },
-  { id: '326', cat: 'drob', num: '326', name: 'Kurczak w sosie curry czerwonym', price: 28 },
-  { id: '327', cat: 'drob', num: '327', name: 'Filet chrupiący po tajsku', price: 27 },
-  { id: '328', cat: 'drob', num: '328', name: 'Kurczak z trawą cytrynową na ostro', price: 25 },
-  { id: '329', cat: 'drob', num: '329', name: 'Kurczak z cytryna na maśle', price: 26 },
-  { id: '330', cat: 'drob', num: '330', name: 'Kurczak w sosie sate na gorącym płomieniu', price: 27 },
-  { id: '331', cat: 'drob', num: '331', name: 'Kurczak luc lac na gorącym płomieniu', price: 29 },
-
-  // --- WIEPRZOWINA ---
-  { id: '530', cat: 'wieprzowina', num: '530', name: 'Wieprzowina po wietnamsku', price: 29 },
-  { id: '531', cat: 'wieprzowina', num: '531', name: 'Wieprzowina z warzywami', price: 26 },
-  { id: '532', cat: 'wieprzowina', num: '532', name: 'Wieprzowina na ostro', price: 26 },
-  { id: '533', cat: 'wieprzowina', num: '533', name: 'Wieprzowina w sosie słodko-kwaśnym', price: 27 },
-  { id: '534', cat: 'wieprzowina', num: '534', name: 'Wieprzowina z ananasem', price: 27 },
-  { id: '540', cat: 'wieprzowina', num: '540', name: 'Wieprzowina w sosie sate na ostro', price: 29 },
-
-  // --- WOŁOWINA ---
-  { id: '642', cat: 'wolowina', num: '642', name: 'Wołowina w sosie pikantnym', price: 32 },
-  { id: '643', cat: 'wolowina', num: '643', name: 'Wołowina w sosie curry', price: 32 },
-  { id: '644', cat: 'wolowina', num: '644', name: 'Wołowina w sosie słodko-kwaśnym', price: 32 },
-  { id: '645', cat: 'wolowina', num: '645', name: 'Wołowina z warzywami', price: 32 },
-  { id: '646', cat: 'wolowina', num: '646', name: 'Wołowina z brokułami i czosnkiem', price: 33 },
-  { id: '648', cat: 'wolowina', num: '648', name: 'Wołowina po kantońsku', price: 35 },
-  { id: '649', cat: 'wolowina', num: '649', name: 'Wołowina w sosie sate', price: 32 },
-  { id: '650', cat: 'wolowina', num: '650', name: 'Wołowina luc lac na gorącym płomieniu', price: 37 },
-  { id: '651', cat: 'wolowina', num: '651', name: 'Wołowina z czarnym pieprzem', price: 35 },
-  { id: '652', cat: 'wolowina', num: '652', name: 'Wołowina w sosie curry czerwonym', price: 33 },
-
-  // --- KACZKA ---
-  { id: '426', cat: 'kaczka', num: '426', name: 'Kaczka po chińsku na gorącym płomieniu', price: 35 },
-  { id: '427', cat: 'kaczka', num: '427', name: 'Kaczka w sosie curry', price: 35 },
-  { id: '428', cat: 'kaczka', num: '428', name: 'Kaczka w sosie słodko-kwaśnym', price: 35 },
-  { id: '431', cat: 'kaczka', num: '431', name: 'Kaczka shanghai na gorącym płomieniu', price: 35 },
-
-  // --- RYBY I OWOCE MORZA ---
-  { id: '855', cat: 'ryby', num: '855', name: 'Ryba po chińsku na gorącym płomieniu', price: 30 },
-  { id: '857', cat: 'ryby', num: '857', name: 'Ryba w sosie pikantnym', price: 28 },
-  { id: '858', cat: 'ryby', num: '858', name: 'Ryba w sosie słodko-kwaśnym', price: 28 },
-  { id: '859', cat: 'ryby', num: '859', name: 'Ryba w sosie curry', price: 28 },
-  { id: '869', cat: 'ryby', num: '869', name: 'Ryba z cytryna na maśle', price: 29 },
-  { id: '870', cat: 'ryby', num: '870', name: 'Ryba chrupiąca na gorącym płomieniu', price: 30 },
-  { id: '863', cat: 'ryby', num: '863', name: 'Krewetki koktajlowe w sosie słodko-kwaśnym', price: 35 },
-  { id: '871', cat: 'ryby', num: '871', name: 'Krewetki koktajlowe na gorącym płomieniu', price: 35 },
-  { id: '860', cat: 'ryby', num: '860', name: 'Krewetki na maśle pikantnym', price: 50 },
-  { id: '872', cat: 'ryby', num: '872', name: 'Krewetki pikantne z trawą cytrynową', price: 50 },
-  { id: '874', cat: 'ryby', num: '874', name: 'Krewetki w sosie curry', price: 50 },
-  { id: '875', cat: 'ryby', num: '875', name: 'Krewetki w sosie tamaryndowym', price: 50 },
-  { id: '864', cat: 'ryby', num: '864', name: 'Krewetki w cieście chrupiącym', price: 32 },
-  { id: '865', cat: 'ryby', num: '865', name: 'Kalmary w sosie pikantnym', price: 32 },
-  { id: '866', cat: 'ryby', num: '866', name: 'Kalmary w sosie słodko-kwaśnym', price: 32 },
-  { id: '873', cat: 'ryby', num: '873', name: 'Kalmary z cytryna na maśle', price: 33 },
-  { id: '876', cat: 'ryby', num: '876', name: 'Kalmary w sosie curry', price: 33 },
-
-  // --- RYŻ I MAKARON SMAŻONY ---
-  { id: '1075', cat: 'makaron_ryz', num: '1075', name: 'Makaron chiński', price: 26, hasMeatChoice: true },
-  { id: '1076', cat: 'makaron_ryz', num: '1076', name: 'Makaron sojowy', price: 27, hasMeatChoice: true },
-  { id: '1077', cat: 'makaron_ryz', num: '1077', name: 'Ryż smażony', price: 26, hasMeatChoice: true },
-  { id: '1078', cat: 'makaron_ryz', num: '1078', name: 'Ryż smażony z krewetkami', price: 28 },
-  { id: '1079', cat: 'makaron_ryz', num: '1079', name: 'Pad thai z tofu', price: 28 },
-  { id: '1080', cat: 'makaron_ryz', num: '1080', name: 'Pad thai z kurczakiem', price: 28 },
-  { id: '1078_w', cat: 'makaron_ryz', num: '1078', name: 'Pad thai z wołowiną', price: 30 },
-  { id: '1078_kr', cat: 'makaron_ryz', num: '1078', name: 'Pad thai z krewetkami', price: 30 },
-
-  // --- MAŁE DANIA - BOX ---
-  { id: 'box_1', cat: 'male_dania', num: 'BOX', name: 'Makaron z kurczakiem', price: 20 },
-  { id: 'box_2', cat: 'male_dania', num: 'BOX', name: 'Makaron z warzywami', price: 18 },
-  { id: 'box_3', cat: 'male_dania', num: 'BOX', name: 'Ryż z kurczakiem', price: 20 },
-  { id: 'box_4', cat: 'male_dania', num: 'BOX', name: 'Ryż z warzywami', price: 18 },
-  { id: 'box_5', cat: 'male_dania', num: 'BOX', name: 'Ryż z chrupiącym kurczakiem', price: 20 },
-
-  // --- DODATKI ---
-  { id: '1180', cat: 'dodatki', num: '1180', name: 'Frytki', price: 8 },
-  { id: '1182', cat: 'dodatki', num: '1182', name: 'Surówka', price: 4 },
-  { id: '1183', cat: 'dodatki', num: '1183', name: 'Ryż biały', price: 4 },
-  { id: '1186', cat: 'dodatki', num: '1186', name: 'Ryż smażony', price: 6 },
-  { id: '1187', cat: 'dodatki', num: '1187', name: 'Makaron sojowy', price: 6 },
-
-  // --- NAPOJE I DESERY ---
-  { id: '1410', cat: 'napoje', num: '1410', name: 'Pepsi / Miranda / 7up (500 ml)', price: 8 },
-  { id: '1412', cat: 'napoje', num: '1412', name: 'Lipton (500 ml)', price: 8 },
-  { id: '1402', cat: 'napoje', num: '1402', name: 'Woda mineralna (500 ml)', price: 5 },
-  { id: '1286', cat: 'napoje', num: '1286', name: 'Banan w cieście (2 szt.)', price: 10 },
-  { id: '1287', cat: 'napoje', num: '1287', name: 'Ananas w cieście (2 szt.)', price: 10 }
-];
+const APP_VERSION = "v1.6.0";
 
 export default function App() {
   const [userName, setUserName] = useState('');
@@ -203,11 +72,15 @@ export default function App() {
     userPin: '5678'
   });
   const [orders, setOrders] = useState([]);
+  const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
+  const [history, setHistory] = useState([]);
   const [activeCategory, setActiveCategory] = useState('zupy');
   const [meatSelections, setMeatSelections] = useState({});
   const [orderForName, setOrderForName] = useState('');
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isMenuEditorOpen, setIsMenuEditorOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('order');
@@ -243,14 +116,28 @@ export default function App() {
       }
     });
 
+    const unsubMenu = onSnapshot(doc(db, "config", "menu"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().items) {
+        setMenuItems(docSnap.data().items);
+      }
+    });
+
     const unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
       const ords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setOrders(ords);
     });
 
+    const unsubHistory = onSnapshot(collection(db, "archived_sessions"), (snapshot) => {
+      const hist = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      hist.sort((a, b) => b.timestamp - a.timestamp);
+      setHistory(hist);
+    });
+
     return () => {
       unsubSession();
       unsubOrders();
+      unsubHistory();
+      unsubMenu();
     };
   }, []);
 
@@ -359,17 +246,36 @@ export default function App() {
     });
   };
 
-  const handleResetSession = async () => {
-    if (!isAdmin) {
-      setIsAdminModalOpen(true);
-      return;
+  const handleSaveMenuCloud = async (updatedItems) => {
+    await setDoc(doc(db, "config", "menu"), { items: updatedItems });
+    showToast("Zapisano zaktualizowane menu w chmurze!");
+  };
+
+  const handleConfirmArchive = async (paidUsers) => {
+    const packagingFee = 1.50;
+    const activeUsers = [...new Set(orders.map(o => o.userName))];
+    const totalFoodAmount = orders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+    const totalPackagingAmount = orders.length * packagingFee;
+    const grandTotal = totalFoodAmount + totalPackagingAmount;
+
+    const archiveDocRef = doc(collection(db, "archived_sessions"));
+    await setDoc(archiveDocRef, {
+      deliveryDate: session.deliveryDate,
+      deliveryTime: session.deliveryTime,
+      timestamp: Date.now(),
+      activeUsers: activeUsers,
+      paidUsers: paidUsers,
+      ordersCount: orders.length,
+      grandTotal: grandTotal,
+      ordersSnapshot: orders
+    });
+
+    // Czyszczenie obecnej sesji
+    for (const ord of orders) {
+      await deleteDoc(doc(db, "orders", ord.id));
     }
-    if (window.confirm("Czy na pewno chcesz zresetować wszystkie zamówienia i otworzyć nową sesję?")) {
-      for (const ord of orders) {
-        await deleteDoc(doc(db, "orders", ord.id));
-      }
-      showToast("Zresetowano sesję zamówień.");
-    }
+
+    showToast("Sesja została pomyślnie przeniesiona do historii!");
   };
 
   const packagingFee = 1.50;
@@ -385,7 +291,6 @@ export default function App() {
   const myPackagingTotal = myOrders.length * packagingFee;
   const myTotalCost = myFoodSum + myPackagingTotal;
 
-  // Obliczenia sumaryczne dla podsumowania MMS/SMS
   const totalFoodAmount = orders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
   const totalPackagingAmount = orders.length * packagingFee;
   const grandTotalAmount = totalFoodAmount + totalPackagingAmount;
@@ -415,24 +320,21 @@ export default function App() {
     return text;
   };
 
-  // Generowanie obrazu zamówienia ze szczegółowymi sumami do schowka
-  const copyImageToClipboard = async () => {
+  const createOrderCanvas = () => {
     const canvas = document.createElement('canvas');
     canvas.width = 650;
     const totalLines = 8 + regularOrders.length + (extraOrders.length > 0 ? extraOrders.length + 3 : 0);
     canvas.height = Math.max(450, totalLines * 26 + 80);
     const ctx = canvas.getContext('2d');
 
-    // Tło
-    ctx.fillStyle = '#020617'; // slate-950
+    ctx.fillStyle = '#020617';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Nagłówek
-    ctx.fillStyle = '#fbbf24'; // amber-400
+    ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 20px sans-serif';
     ctx.fillText('BAR MAI MAI - ZAMÓWIENIE', 25, 40);
 
-    ctx.fillStyle = '#94a3b8'; // slate-400
+    ctx.fillStyle = '#94a3b8';
     ctx.font = '14px sans-serif';
     ctx.fillText(`Data Odbioru: ${session.deliveryDate} o godz. ${session.deliveryTime}`, 25, 68);
 
@@ -466,7 +368,6 @@ export default function App() {
       });
     }
 
-    // Podsumowanie kwotowe na obrazie
     y += 15;
     ctx.strokeStyle = '#334155';
     ctx.lineWidth = 1;
@@ -487,16 +388,30 @@ export default function App() {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillText(`RAZEM DO ZAPŁATY: ${grandTotalAmount.toFixed(2)} zł`, 25, y);
 
+    return canvas;
+  };
+
+  const copyImageToClipboard = async () => {
+    const canvas = createOrderCanvas();
     canvas.toBlob(async (blob) => {
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        showToast("Obraz zamówienia z kwotami skopiowany do schowka! Wklej w MMS 📸");
+        showToast("Obraz zamówienia skopiowany do schowka! 📸");
       } catch (err) {
         console.error(err);
         navigator.clipboard.writeText(generateMmsText());
         showToast("Skopiowano tekst z podsumowaniem kwotowym.");
       }
     });
+  };
+
+  const downloadImageFile = () => {
+    const canvas = createOrderCanvas();
+    const link = document.createElement('a');
+    link.download = `zamowienie-mai-mai-${session.deliveryDate}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast("Zapisano plik graficzny PNG zamówienia!");
   };
 
   if (!isLoggedIn) {
@@ -673,6 +588,13 @@ export default function App() {
                 {session.isExtraSession ? '🔴 Wyłącz sesję domówień' : '🟢 Otwórz sesję domówień (2. tura)'}
               </button>
 
+              <button 
+                onClick={() => setIsMenuEditorOpen(true)}
+                className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1"
+              >
+                <Edit3 size={14} /> Edytuj Menu / Ceny
+              </button>
+
               <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
                 <span className="text-slate-400">PIN Użytkowników:</span>
                 <input 
@@ -700,10 +622,10 @@ export default function App() {
               </div>
 
               <button 
-                onClick={handleResetSession}
-                className="bg-slate-800 hover:bg-rose-950 text-rose-400 border border-rose-800/50 px-3 py-1.5 rounded-lg font-medium"
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
               >
-                Resetuj całą sesję
+                <DollarSign size={14} /> Zakończ i rozlicz płatności
               </button>
             </div>
           </div>
@@ -786,98 +708,17 @@ export default function App() {
               )}
             </div>
 
-            {/* WIELOLINIOWY UKŁAD KATEGORII */}
-            <div className="sticky top-[65px] bg-slate-950/95 backdrop-blur-md py-3 z-20 border-b border-slate-800/60">
-              <div className="flex flex-wrap gap-2 items-center">
-                {MENU_CATEGORIES.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${activeCategory === cat.id ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' : 'bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300'}`}
-                  >
-                    <span>{cat.name}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeCategory === cat.id ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
-                      {MENU_ITEMS.filter(i => i.cat === cat.id).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* LISTA DAŃ Z WYBRANEJ KATEGORII */}
-            <div className="space-y-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold capitalize text-amber-400">
-                    {MENU_CATEGORIES.find(c => c.id === activeCategory)?.name}
-                  </h3>
-                  {session.isExtraSession && (
-                    <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-xl font-bold animate-pulse">
-                      ⚠️ Tryb Domówień aktywny
-                    </span>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {MENU_ITEMS.filter(item => item.cat === activeCategory).map(item => {
-                    return (
-                      <div key={item.id} className="bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 p-4 rounded-2xl flex flex-col justify-between transition-all">
-                        <div>
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold px-2 py-0.5 rounded-lg">
-                              Poz. {item.num}
-                            </span>
-                            <span className="text-base font-bold text-slate-100">
-                              {item.price} zł
-                            </span>
-                          </div>
-                          <h4 className="font-semibold text-slate-200 text-sm mt-1">{item.name}</h4>
-                          
-                          {/* Wybór mięsa dla dań z mięsem */}
-                          {item.hasMeatChoice && (
-                            <div className="mt-2 pt-2 border-t border-slate-800/60">
-                              <label className="block text-[11px] text-slate-400 mb-1">Wybierz mięso:</label>
-                              <div className="grid grid-cols-3 gap-1">
-                                {['kurczak', 'wieprzowina', 'wołowina'].map(meat => {
-                                  const current = meatSelections[item.id] || 'kurczak';
-                                  const isSelected = current === meat;
-                                  return (
-                                    <button
-                                      key={meat}
-                                      type="button"
-                                      onClick={() => setMeatSelections(prev => ({ ...prev, [item.id]: meat }))}
-                                      className={`py-1 px-1 text-[10px] rounded-lg font-medium capitalize transition-all border ${isSelected ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold' : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'}`}
-                                    >
-                                      {meat}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {item.isDoublePack && (
-                            <span className="inline-block bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] px-2 py-0.5 rounded mt-1">
-                              Specjalne: 2 porcje w 1 opakowaniu (+1,50 zł)
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-end">
-                          <button 
-                            onClick={() => handleAddItem(item)}
-                            className={`px-4 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all shadow-md active:scale-95 ${session.isOpen ? 'bg-amber-500 hover:bg-amber-600 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
-                            disabled={!session.isOpen}
-                          >
-                            <Plus size={14} /> {session.isExtraSession ? 'Domów' : 'Dodaj'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            {/* MODUŁ DAŃ (WIDOK KOMPONENTU) */}
+            <MenuList 
+              categories={MENU_CATEGORIES}
+              menuItems={menuItems}
+              activeCategory={activeCategory}
+              setActiveCategory={setActiveCategory}
+              meatSelections={meatSelections}
+              setMeatSelections={setMeatSelections}
+              onAddItem={handleAddItem}
+              session={session}
+            />
 
           </div>
         )}
@@ -899,7 +740,13 @@ export default function App() {
                     onClick={copyImageToClipboard}
                     className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg"
                   >
-                    <ImageIcon size={14} /> Skopiuj obraz do MMS
+                    <ImageIcon size={14} /> Skopiuj obraz
+                  </button>
+                  <button 
+                    onClick={downloadImageFile}
+                    className="bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all border border-amber-500/30"
+                  >
+                    <Download size={14} /> Zapisz obraz PNG
                   </button>
                   <button 
                     onClick={() => {
@@ -913,7 +760,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* LISTA GŁÓWNA -> ZMIENIONA NA "DANIA" */}
+              {/* LISTA DAŃ */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
                   Dania ({regularOrders.length} poz.)
@@ -952,7 +799,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* SEKCJA POSIŁKÓW DOMAWIANYCH -> ZMIENIONA NA "DANIA DOMÓWIONE" */}
+              {/* SEKCJA POSIŁKÓW DOMAWIANYCH */}
               <div className="space-y-3 mt-8">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 pb-2 flex items-center justify-between">
                   <span>Dania domówione ({extraOrders.length} poz.)</span>
@@ -1046,23 +893,13 @@ export default function App() {
           </div>
         )}
 
-        {/* STATYSTYKI */}
+        {/* STATYSTYKI Z ARCHIWUM */}
         {activeTab === 'stats' && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4">
-              <div className="inline-flex p-4 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/20 mb-2">
-                <Award size={36} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-100">Hall of Fame - Bar Mai Mai</h3>
-              <p className="text-sm text-slate-400 max-w-lg mx-auto">
-                Miejsce na dane z Twojego Excela – dodamy je przy kolejnym kroku!
-              </p>
-            </div>
-          </div>
+          <HistoryArchive history={history} />
         )}
       </main>
 
-      {/* MODAL ADMINA */}
+      {/* MODALE */}
       {isAdminModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
@@ -1101,6 +938,22 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <MenuEditorModal 
+        isOpen={isMenuEditorOpen}
+        onClose={() => setIsMenuEditorOpen(false)}
+        menuItems={menuItems}
+        categories={MENU_CATEGORIES}
+        onSaveMenu={handleSaveMenuCloud}
+      />
+
+      <PaymentModal 
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        orders={orders}
+        packagingFee={packagingFee}
+        onConfirmArchive={handleConfirmArchive}
+      />
 
     </div>
   );
