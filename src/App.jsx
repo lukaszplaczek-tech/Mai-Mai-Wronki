@@ -26,7 +26,9 @@ import {
   Image as ImageIcon,
   Edit3,
   DollarSign,
-  Download
+  Download,
+  Copy,
+  Phone
 } from 'lucide-react';
 
 import { MENU_CATEGORIES, DEFAULT_MENU_ITEMS } from './data/menu';
@@ -54,7 +56,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PIN = "1234";
-const APP_VERSION = "v1.6.2";
+const APP_VERSION = "v1.6.3";
 
 export default function App() {
   const [userName, setUserName] = useState('');
@@ -68,7 +70,8 @@ export default function App() {
     isExtraSession: false,
     deliveryDate: '',
     deliveryTime: '12:00',
-    userPin: '5678'
+    userPin: '5678',
+    adminPhone: ''
   });
   const [orders, setOrders] = useState([]);
   const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
@@ -109,7 +112,7 @@ export default function App() {
         const data = docSnap.data();
         setSession(prev => ({ ...prev, ...data }));
       } else {
-        const defaultSession = { isOpen: true, isExtraSession: false, deliveryDate: dateStr, deliveryTime: '12:00', userPin: '5678' };
+        const defaultSession = { isOpen: true, isExtraSession: false, deliveryDate: dateStr, deliveryTime: '12:00', userPin: '5678', adminPhone: '' };
         setDoc(doc(db, "config", "session"), defaultSession);
         setSession(defaultSession);
       }
@@ -199,7 +202,6 @@ export default function App() {
       alert("Sesja jest zamknięta!");
       return;
     }
-    // Zabezpieczenie: usunąć może tylko administrator LUB realny właściciel wpisu (po unikalnym userId)
     if (!isAdmin && orderItem.userId !== userId) {
       alert("Możesz usuwać tylko własne pozycje zamówienia!");
       return;
@@ -679,6 +681,17 @@ export default function App() {
               </button>
 
               <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
+                <span className="text-slate-400">Nr BLIK:</span>
+                <input 
+                  type="text" 
+                  value={session.adminPhone || ''} 
+                  onChange={(e) => handleUpdateSessionMeta('adminPhone', e.target.value)}
+                  placeholder="np. 500600700"
+                  className="bg-slate-800 text-amber-400 font-bold px-2 py-0.5 rounded border border-slate-700 text-xs w-28 text-center"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
                 <span className="text-slate-400">PIN Użytkowników:</span>
                 <input 
                   type="text" 
@@ -755,11 +768,30 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="text-sm font-bold text-slate-200 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                  Do zapłaty: <span className="text-amber-400">{myTotalCost.toFixed(2)} zł</span> 
-                  <span className="text-xs text-slate-400 font-normal ml-2">
-                    (opakowania: {myPackagingTotal.toFixed(2)} zł / {myOrders.length} poz.)
-                  </span>
+                <div className="text-sm font-bold text-slate-200 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center gap-3">
+                  <span>Do zapłaty: <span className="text-amber-400">{myTotalCost.toFixed(2)} zł</span></span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(myTotalCost.toFixed(2));
+                      showToast(`Skopiowano kwotę ${myTotalCost.toFixed(2)} zł do schowka! 📋`);
+                    }}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                    title="Skopiuj swoją kwotę do schowka"
+                  >
+                    <Copy size={12} /> Skopiuj kwotę
+                  </button>
+                  {session.adminPhone && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(session.adminPhone);
+                        showToast(`Skopiowano nr telefonu: ${session.adminPhone} 📱`);
+                      }}
+                      className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                      title="Skopiuj numer telefonu do przelewu BLIK"
+                    >
+                      <Phone size={12} /> Nr BLIK
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -933,7 +965,7 @@ export default function App() {
 
             </div>
 
-            {/* ROZLICZENIE FINANSOWE Z PRZYCISKAMI GRAFICZNYMI */}
+            {/* ROZLICZENIE FINANSOWE Z PRZYCISKAMI SZYBKIEGO KOPIOWANIA KWOTY */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
@@ -963,97 +995,15 @@ export default function App() {
                   const userTotal = foodSum + userPackagingTotal;
 
                   return (
-                    <div key={uName} className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl">
-                      <h4 className="font-bold text-slate-200 text-sm mb-2 pb-2 border-b border-slate-800 flex items-center justify-between">
-                        <span>{uName}</span>
-                        <span className="text-amber-400 text-xs">{userTotal.toFixed(2)} zł</span>
-                      </h4>
-                      <ul className="space-y-1 text-xs text-slate-400 mb-3">
-                        {userOrders.map(uo => (
-                          <li key={uo.id} className="flex justify-between">
-                            <span className="truncate pr-2">
-                              #{uo.itemNum} {uo.itemName}
-                              {uo.isExtra && <span className="text-amber-400 text-[10px] ml-1">(domówienie)</span>}
-                            </span>
-                            <span className="shrink-0">{uo.price} zł</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="text-[10px] text-slate-500 pt-2 border-t border-slate-800 flex justify-between">
-                        <span>Opakowania ({userOrders.length} x {packagingFee} zł): {userPackagingTotal.toFixed(2)} zł</span>
-                        <span className="font-bold text-slate-300">Razem: {userTotal.toFixed(2)} zł</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* STATYSTYKI Z ARCHIWUM */}
-        {activeTab === 'stats' && (
-          <HistoryArchive history={history} />
-        )}
-      </main>
-
-      {/* MODALE */}
-      {isAdminModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-amber-400">
-              <Lock size={24} />
-              <h3 className="text-lg font-bold text-slate-100">PIN Administratora</h3>
-            </div>
-            <p className="text-xs text-slate-400">Podaj PIN administracyjny:</p>
-            
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <input 
-                type="password" 
-                value={adminPinInput} 
-                onChange={(e) => setAdminPinInput(e.target.value)} 
-                placeholder="PIN" 
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 tracking-widest text-center text-lg focus:outline-none focus:border-amber-500"
-                autoFocus
-                required
-              />
-              <div className="flex gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsAdminModalOpen(false)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs"
-                >
-                  Anuluj
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs shadow-lg"
-                >
-                  Zaloguj
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <MenuEditorModal 
-        isOpen={isMenuEditorOpen}
-        onClose={() => setIsMenuEditorOpen(false)}
-        menuItems={menuItems}
-        categories={MENU_CATEGORIES}
-        onSaveMenu={handleSaveMenuCloud}
-      />
-
-      <PaymentModal 
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        orders={orders}
-        packagingFee={packagingFee}
-        onConfirmArchive={handleConfirmArchive}
-      />
-
-    </div>
-  );
-}
+                    <div key={uName} className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+                      <div>
+                        <h4 className="font-bold text-slate-200 text-sm mb-2 pb-2 border-b border-slate-800 flex items-center justify-between">
+                          <span>{uName}</span>
+                          <span className="text-amber-400 text-xs">{userTotal.toFixed(2)} zł</span>
+                        </h4>
+                        <ul className="space-y-1 text-xs text-slate-400 mb-3">
+                          {userOrders.map(uo => (
+                            <li key={uo.id} className="flex justify-between">
+                              <span className="truncate pr-2">
+                                #{uo.itemNum} {uo.itemName}
+                                {uo.isExtra && <span className="text-amber-400 text-[10px] ml-1">(
