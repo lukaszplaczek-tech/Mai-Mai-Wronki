@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Calendar, DollarSign, Utensils } from 'lucide-react';
+import { Award, Calendar, DollarSign, Utensils, Flame } from 'lucide-react';
 
 export default function HistoryArchive({ history }) {
   if (!history || history.length === 0) {
@@ -18,6 +18,22 @@ export default function HistoryArchive({ history }) {
 
   const grandTotalSpent = history.reduce((acc, h) => acc + h.grandTotal, 0);
   const totalOrdersCount = history.reduce((acc, h) => acc + h.ordersCount, 0);
+
+  // Agregacja popularności dań ze wszystkich zarchiwizowanych sesji
+  const dishCounts = {};
+  history.forEach(session => {
+    if (session.ordersSnapshot) {
+      session.ordersSnapshot.forEach(ord => {
+        const key = `#${ord.itemNum} - ${ord.itemName}`;
+        if (!dishCounts[key]) {
+          dishCounts[key] = { num: ord.itemNum, name: ord.itemName, count: 0, price: ord.price };
+        }
+        dishCounts[key].count += (ord.quantity || 1);
+      });
+    }
+  });
+
+  const popularDishes = Object.values(dishCounts).sort((a, b) => b.count - a.count);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -50,6 +66,36 @@ export default function HistoryArchive({ history }) {
             <div className="text-xl font-bold text-slate-100">{history.length} sesji</div>
           </div>
         </div>
+      </div>
+
+      {/* RANKING POPULARNOŚCI DAŃ */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
+          <Flame size={20} /> Ranking popularności dań (Hall of Fame)
+        </h3>
+        
+        {popularDishes.length === 0 ? (
+          <p className="text-xs text-slate-400 italic">Brak danych o potrawach.</p>
+        ) : (
+          <div className="space-y-2">
+            {popularDishes.map((dish, idx) => (
+              <div key={idx} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-amber-500 font-bold w-6">#{idx + 1}</span>
+                  <div>
+                    <span className="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded mr-2">Poz. {dish.num}</span>
+                    <span className="font-semibold text-slate-200">{dish.name}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="bg-slate-900 text-amber-400 font-bold px-2.5 py-1 rounded-lg border border-slate-800">
+                    {dish.count} szt. zamawianych
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* HISTORIA ZAKOŃCZONYCH SESJI */}
