@@ -56,7 +56,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PIN = "4271";
-const APP_VERSION = "v1.6.3";
+const APP_VERSION = "v1.6.4";
 
 export default function App() {
   const [userName, setUserName] = useState('');
@@ -120,7 +120,15 @@ export default function App() {
 
     const unsubMenu = onSnapshot(doc(db, "config", "menu"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().items) {
-        setMenuItems(docSnap.data().items);
+        const cloudItems = docSnap.data().items;
+        // Łączymy flagi z pliku lokalnego (np. hasMeatChoice, isDoublePack) z danymi z chmury
+        const mergedItems = cloudItems.map(cItem => {
+          const defItem = DEFAULT_MENU_ITEMS.find(d => d.id === cItem.id);
+          return defItem ? { ...defItem, ...cItem, hasMeatChoice: defItem.hasMeatChoice || cItem.hasMeatChoice } : cItem;
+        });
+        // Dodajemy ewentualne nowe pozycje z pliku lokalnego, których jeszcze nie ma w chmurze
+        const missingDefaults = DEFAULT_MENU_ITEMS.filter(d => !cloudItems.some(c => c.id === d.id));
+        setMenuItems([...mergedItems, ...missingDefaults]);
       }
     });
 
@@ -142,6 +150,12 @@ export default function App() {
       unsubMenu();
     };
   }, []);
+
+  // Funkcja pomocnicza dynamicznie pobierająca aktualną cenę z menu dla otwartych zamówień
+  const getActualPrice = (ord) => {
+    const found = menuItems.find(i => i.id === ord.menuItemId);
+    return found ? found.price : ord.price;
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -165,22 +179,20 @@ export default function App() {
     }, 3000);
   };
 
-const handleAddItem = async (menuItem) => {
+  const handleAddItem = async (menuItem) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta! Nie można dodawać zamówień.");
       return;
     }
 
-    // ZAWSZE pobieramy najświeższą wersję pozycji bezpośrednio z aktualnej tablicy menuItems (z Firebase / kodu)
     const currentMenuItem = menuItems.find(i => i.id === menuItem.id) || menuItem;
-
     const targetUser = isAdmin ? (orderForName.trim() || userName.trim()) : userName.trim();
     const isExtra = session.isExtraSession || false;
     let finalItemName = currentMenuItem.name;
 
     if (currentMenuItem.hasMeatChoice) {
       const selectedMeat = meatSelections[currentMenuItem.id] || 'kurczak';
-      finalItemName = `${currentMenuItem.name} z mięsem (${selectedMeat})`;
+      finalItemName = `${currentMenuItem.name} (${selectedMeat})`;
     }
 
     const newOrderRef = doc(collection(db, "orders"));
@@ -190,7 +202,7 @@ const handleAddItem = async (menuItem) => {
       menuItemId: currentMenuItem.id,
       itemNum: currentMenuItem.num,
       itemName: finalItemName,
-      price: currentMenuItem.price, // Pobiera świeżą, poprawioną cenę!
+      price: currentMenuItem.price,
       isDoublePack: currentMenuItem.isDoublePack || false,
       quantity: 1,
       isExtra: isExtra,
@@ -198,9 +210,6 @@ const handleAddItem = async (menuItem) => {
     });
 
     showToast(`Dodano: #${currentMenuItem.num} ${finalItemName} (${currentMenuItem.price} zł) dla ${targetUser}! ✓`);
-  };
-
-    showToast(`Dodano: #${menuItem.num} ${finalItemName} dla ${targetUser}! ✓`);
   };
 
   const handleDeleteOrder = async (orderItem) => {
@@ -267,8 +276,14 @@ const handleAddItem = async (menuItem) => {
   const handleConfirmArchive = async (paidUsers) => {
     const packagingFee = 1.50;
     const activeUsers = [...new Set(orders.map(o => o.userName))];
-    const totalFoodAmount = orders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
-    const totalPackagingAmount = orders.length * packagingFee;
+    // Zapisujemy aktualne ceny do archiwum, aby historia była niezmienna
+    const finalizedOrders = orders.map(o => ({
+      ...o,
+      price: getActualPrice(o)
+    }));
+
+    const totalFoodAmount = finalizedOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+    const totalPackagingAmount = finalizedOrders.length * packagingFee;
     const grandTotal = totalFoodAmount + totalPackagingAmount;
 
     const archiveDocRef = doc(collection(db, "archived_sessions"));
@@ -278,9 +293,9 @@ const handleAddItem = async (menuItem) => {
       timestamp: Date.now(),
       activeUsers: activeUsers,
       paidUsers: paidUsers,
-      ordersCount: orders.length,
+      ordersCount: finalizedOrders.length,
       grandTotal: grandTotal,
-      ordersSnapshot: orders
+      ordersSnapshot: finalizedOrders
     });
 
     for (const ord of orders) {
@@ -299,11 +314,11 @@ const handleAddItem = async (menuItem) => {
   const viewingUser = isAdmin ? (orderForName.trim() || userName) : userName;
   const myOrders = orders.filter(o => o.userName === viewingUser);
   
-  const myFoodSum = myOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+  const myFoodSum = myOrders.reduce((acc, o) => acc + (getActualPrice(o) * o.quantity), 0);
   const myPackagingTotal = myOrders.length * packagingFee;
   const myTotalCost = myFoodSum + myPackagingTotal;
 
-  const totalFoodAmount = orders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+  const totalFoodAmount = orders.reduce((acc, o) => acc + (getActualPrice(o) * o.quantity), 0);
   const totalPackagingAmount = orders.length * packagingFee;
   const grandTotalAmount = totalFoodAmount + totalPackagingAmount;
 
@@ -314,13 +329,15 @@ const handleAddItem = async (menuItem) => {
     text += `--- DANIA ---\n`;
     regularOrders.forEach((ord, index) => {
       const opakowaniaInfo = ord.isDoublePack ? ` (2 porcje w 1 opak.)` : ``;
-      text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}] - ${ord.price} zł\n`;
+      const price = getActualPrice(ord);
+      text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}] - ${price} zł\n`;
     });
 
     if (extraOrders.length > 0) {
       text += `\n--- DANIA DOMÓWIONE ---\n`;
       extraOrders.forEach((ord, index) => {
-        text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}] - ${ord.price} zł\n`;
+        const price = getActualPrice(ord);
+        text += `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}] - ${price} zł\n`;
       });
     }
 
@@ -360,7 +377,8 @@ const handleAddItem = async (menuItem) => {
     regularOrders.forEach((ord, index) => {
       ctx.fillStyle = '#e2e8f0';
       const opakowaniaInfo = ord.isDoublePack ? ` (2 porcje w 1 opak.)` : ``;
-      const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}] - ${ord.price} zł`;
+      const price = getActualPrice(ord);
+      const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName}${opakowaniaInfo} [${ord.userName}] - ${price} zł`;
       ctx.fillText(line, 25, y);
       y += 24;
     });
@@ -374,7 +392,8 @@ const handleAddItem = async (menuItem) => {
       ctx.fillStyle = '#e2e8f0';
       ctx.font = '13px sans-serif';
       extraOrders.forEach((ord, index) => {
-        const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}] - ${ord.price} zł`;
+        const price = getActualPrice(ord);
+        const line = `${index + 1}. Poz. ${ord.itemNum} - ${ord.itemName} [DOMÓWIENIE - ${ord.userName}] - ${price} zł`;
         ctx.fillText(line, 25, y);
         y += 24;
       });
@@ -452,7 +471,7 @@ const handleAddItem = async (menuItem) => {
 
     activeUsers.forEach((uName, index) => {
       const userOrders = orders.filter(o => o.userName === uName);
-      const foodSum = userOrders.reduce((acc, o) => acc + o.price, 0);
+      const foodSum = userOrders.reduce((acc, o) => acc + getActualPrice(o), 0);
       const userTotal = foodSum + (userOrders.length * packagingFee);
 
       ctx.fillStyle = '#fbbf24';
@@ -805,26 +824,29 @@ const handleAddItem = async (menuItem) => {
                 <p className="text-xs text-slate-400 italic py-2">Brak pozycji w koszyku dla wybranej osoby. Wybierz coś z menu poniżej!</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {myOrders.map(item => (
-                    <div key={item.id} className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
-                      <div className="truncate pr-2">
-                        <span className="font-semibold text-amber-400 mr-1.5">#{item.itemNum}</span>
-                        <span className="text-slate-200 font-medium">{item.itemName}</span>
-                        {item.isExtra && <span className="bg-amber-500/20 text-amber-300 text-[9px] px-1.5 py-0.5 rounded ml-1 font-bold">DOMÓWIENIE</span>}
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          Cena: <strong className="text-slate-200">{item.price} zł</strong> + opakowanie {packagingFee} zł
+                  {myOrders.map(item => {
+                    const actualPrice = getActualPrice(item);
+                    return (
+                      <div key={item.id} className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
+                        <div className="truncate pr-2">
+                          <span className="font-semibold text-amber-400 mr-1.5">#{item.itemNum}</span>
+                          <span className="text-slate-200 font-medium">{item.itemName}</span>
+                          {item.isExtra && <span className="bg-amber-500/20 text-amber-300 text-[9px] px-1.5 py-0.5 rounded ml-1 font-bold">DOMÓWIENIE</span>}
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            Cena: <strong className="text-slate-200">{actualPrice} zł</strong> + opakowanie {packagingFee} zł
+                          </div>
                         </div>
+                        <button 
+                          onClick={() => handleDeleteOrder(item)}
+                          className="w-7 h-7 bg-rose-950/40 hover:bg-rose-900 text-rose-400 rounded-lg flex items-center justify-center transition-all shrink-0 border border-rose-800/40"
+                          disabled={!session.isOpen}
+                          title="Usuń tę pozycję"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => handleDeleteOrder(item)}
-                        className="w-7 h-7 bg-rose-950/40 hover:bg-rose-900 text-rose-400 rounded-lg flex items-center justify-center transition-all shrink-0 border border-rose-800/40"
-                        disabled={!session.isOpen}
-                        title="Usuń tę pozycję"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -891,31 +913,34 @@ const handleAddItem = async (menuItem) => {
                   <p className="text-xs text-slate-500 italic py-4">Brak pozycji na liście dań.</p>
                 ) : (
                   <div className="space-y-2">
-                    {regularOrders.map((ord, idx) => (
-                      <div key={ord.id} className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-slate-500 font-bold w-6">{idx + 1}.</span>
-                          <div>
-                            <span className="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
-                            <span className="font-semibold text-slate-200">{ord.itemName}</span>
-                            {ord.isDoublePack && <span className="text-purple-400 text-[10px] ml-2">(2 porcje w 1 opak.)</span>}
+                    {regularOrders.map((ord, idx) => {
+                      const actualPrice = getActualPrice(ord);
+                      return (
+                        <div key={ord.id} className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-slate-500 font-bold w-6">{idx + 1}.</span>
+                            <div>
+                              <span className="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
+                              <span className="font-semibold text-slate-200">{ord.itemName}</span>
+                              {ord.isDoublePack && <span className="text-purple-400 text-[10px] ml-2">(2 porcje w 1 opak.)</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-amber-400 font-bold">{actualPrice} zł</span>
+                            <span className="text-slate-400 italic">[{ord.userName}]</span>
+                            {(isAdmin || ord.userId === userId) && (
+                              <button 
+                                onClick={() => handleDeleteOrder(ord)}
+                                className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
+                                title="Usuń pozycję"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-amber-400 font-bold">{ord.price} zł</span>
-                          <span className="text-slate-400 italic">[{ord.userName}]</span>
-                          {(isAdmin || ord.userId === userId) && (
-                            <button 
-                              onClick={() => handleDeleteOrder(ord)}
-                              className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
-                              title="Usuń pozycję"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -930,30 +955,33 @@ const handleAddItem = async (menuItem) => {
                   <p className="text-xs text-slate-500 italic py-2">Brak dań domówionych.</p>
                 ) : (
                   <div className="space-y-2">
-                    {extraOrders.map((ord, idx) => (
-                      <div key={ord.id} className="bg-amber-950/20 border border-amber-800/40 p-3 rounded-xl flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-amber-500 font-bold w-6">{idx + 1}.</span>
-                          <div>
-                            <span className="bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
-                            <span className="font-semibold text-slate-200">{ord.itemName}</span>
-                            <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-1.5 py-0.5 rounded ml-2">DOMÓWIENIE</span>
+                    {extraOrders.map((ord, idx) => {
+                      const actualPrice = getActualPrice(ord);
+                      return (
+                        <div key={ord.id} className="bg-amber-950/20 border border-amber-800/40 p-3 rounded-xl flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-amber-500 font-bold w-6">{idx + 1}.</span>
+                            <div>
+                              <span className="bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded mr-2">Poz. {ord.itemNum}</span>
+                              <span className="font-semibold text-slate-200">{ord.itemName}</span>
+                              <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-1.5 py-0.5 rounded ml-2">DOMÓWIENIE</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-amber-400 font-bold">{actualPrice} zł</span>
+                            <span className="text-slate-400 italic">[{ord.userName}]</span>
+                            {(isAdmin || ord.userId === userId) && (
+                              <button 
+                                onClick={() => handleDeleteOrder(ord)}
+                                className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-amber-400 font-bold">{ord.price} zł</span>
-                          <span className="text-slate-400 italic">[{ord.userName}]</span>
-                          {(isAdmin || ord.userId === userId) && (
-                            <button 
-                              onClick={() => handleDeleteOrder(ord)}
-                              className="text-rose-400 hover:text-rose-300 p-1 border-l border-slate-800 pl-2"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -996,7 +1024,7 @@ const handleAddItem = async (menuItem) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {activeUsers.map(uName => {
                   const userOrders = orders.filter(o => o.userName === uName);
-                  const foodSum = userOrders.reduce((acc, o) => acc + (o.price * o.quantity), 0);
+                  const foodSum = userOrders.reduce((acc, o) => acc + (getActualPrice(o) * o.quantity), 0);
                   const userPackagingTotal = userOrders.length * packagingFee;
                   const userTotal = foodSum + userPackagingTotal;
 
@@ -1014,7 +1042,7 @@ const handleAddItem = async (menuItem) => {
                                 #{uo.itemNum} {uo.itemName}
                                 {uo.isExtra && <span className="text-amber-400 text-[10px] ml-1">(domówienie)</span>}
                               </span>
-                              <span className="shrink-0">{uo.price} zł</span>
+                              <span className="shrink-0">{getActualPrice(uo)} zł</span>
                             </li>
                           ))}
                         </ul>
@@ -1105,7 +1133,7 @@ const handleAddItem = async (menuItem) => {
 
       <MenuEditorModal 
         isOpen={isMenuEditorOpen}
-        onClose={() => setIsMenuEditorOn(false)}
+        onClose={() => setIsMenuEditorOpen(false)}
         menuItems={menuItems}
         categories={MENU_CATEGORIES}
         onSaveMenu={handleSaveMenuCloud}
