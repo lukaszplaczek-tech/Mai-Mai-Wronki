@@ -103,9 +103,9 @@ export const DEFAULT_MENU_ITEMS = [
   { id: '876', cat: 'ryby', num: '876', name: 'Kalmary w sosie curry', price: 32 },
 
   // --- RYŻ I MAKARON SMAŻONY ---[span_10](start_span)[span_10](end_span)
-  { id: '1075', cat: 'makaron_ryz', num: '1075', name: 'Makaron chiński z mięsem', price: 26 },
-  { id: '1076', cat: 'makaron_ryz', num: '1076', name: 'Makaron sojowy z mięsem', price: 27 },
-  { id: '1077', cat: 'makaron_ryz', num: '1077', name: 'Ryż smażony z mięsem', price: 26 },
+  { id: '1075', cat: 'makaron_ryz', num: '1075', name: 'Makaron chiński z mięsem', price: 26 , hasMeatChoice: true},
+  { id: '1076', cat: 'makaron_ryz', num: '1076', name: 'Makaron sojowy z mięsem', price: 27 ,hasMeatChoice: true },
+  { id: '1077', cat: 'makaron_ryz', num: '1077', name: 'Ryż smażony z mięsem', price: 26 , hasMeatChoice: true},
   { id: '1078', cat: 'makaron_ryz', num: '1078', name: 'Ryż smażony z krewetkami', price: 28 },
   { id: '1079', cat: 'makaron_ryz', num: '1079', name: 'Pad thai z tofu', price: 26 },
   { id: '1080', cat: 'makaron_ryz', num: '1080', name: 'Pad thai z kurczakiem', price: 28 },
