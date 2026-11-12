@@ -25,12 +25,12 @@ export default function MenuEditorModal({ isOpen, onClose, menuItems, categories
     setIsSaving(true);
     try {
       await onSaveMenu(items);
-      onClose();
+      onClose(); // Zamknij okno dopiero po udanym zapisie
     } catch (err) {
       console.error(err);
-      alert("Błąd podczas zapisywania menu.");
+      alert("Błąd podczas zapisywania menu: " + (err.message || "Nieznany błąd"));
     } finally {
-      setIsSaving(false);
+      setIsSaving(false); // ZAWSZE odblokowuj przycisk, żeby okno nie zostało zablokowane
     }
   };
 
@@ -101,11 +101,14 @@ export default function MenuEditorModal({ isOpen, onClose, menuItems, categories
         {/* STOPKA Z PRZYCISKAMI */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/50 flex justify-end gap-3 shrink-0">
           <button 
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
-          >
-            Anuluj
-          </button>
+    onClick={() => {
+      setIsSaving(false);
+      onClose();
+    }}
+    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+  >
+    Anuluj
+  </button>
           <button 
             onClick={handleSave}
             disabled={isSaving}
