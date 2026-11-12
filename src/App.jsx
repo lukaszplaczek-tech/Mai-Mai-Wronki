@@ -165,34 +165,40 @@ export default function App() {
     }, 3000);
   };
 
-  const handleAddItem = async (menuItem) => {
+const handleAddItem = async (menuItem) => {
     if (!session.isOpen) {
       alert("Sesja jest zamknięta! Nie można dodawać zamówień.");
       return;
     }
 
+    // ZAWSZE pobieramy najświeższą wersję pozycji bezpośrednio z aktualnej tablicy menuItems (z Firebase / kodu)
+    const currentMenuItem = menuItems.find(i => i.id === menuItem.id) || menuItem;
+
     const targetUser = isAdmin ? (orderForName.trim() || userName.trim()) : userName.trim();
     const isExtra = session.isExtraSession || false;
-    let finalItemName = menuItem.name;
+    let finalItemName = currentMenuItem.name;
 
-    if (menuItem.hasMeatChoice) {
-      const selectedMeat = meatSelections[menuItem.id] || 'kurczak';
-      finalItemName = `${menuItem.name} z mięsem (${selectedMeat})`;
+    if (currentMenuItem.hasMeatChoice) {
+      const selectedMeat = meatSelections[currentMenuItem.id] || 'kurczak';
+      finalItemName = `${currentMenuItem.name} z mięsem (${selectedMeat})`;
     }
 
     const newOrderRef = doc(collection(db, "orders"));
     await setDoc(newOrderRef, {
       userId: userId,
       userName: targetUser,
-      menuItemId: menuItem.id,
-      itemNum: menuItem.num,
+      menuItemId: currentMenuItem.id,
+      itemNum: currentMenuItem.num,
       itemName: finalItemName,
-      price: menuItem.price,
-      isDoublePack: menuItem.isDoublePack || false,
+      price: currentMenuItem.price, // Pobiera świeżą, poprawioną cenę!
+      isDoublePack: currentMenuItem.isDoublePack || false,
       quantity: 1,
       isExtra: isExtra,
       timestamp: Date.now()
     });
+
+    showToast(`Dodano: #${currentMenuItem.num} ${finalItemName} (${currentMenuItem.price} zł) dla ${targetUser}! ✓`);
+  };
 
     showToast(`Dodano: #${menuItem.num} ${finalItemName} dla ${targetUser}! ✓`);
   };
